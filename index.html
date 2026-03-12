@@ -112,6 +112,30 @@
             margin-top: 4px;
         }
 
+        .sort-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .sort-label {
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sort-select {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #ccc;
+            font-size: 12px;
+            padding: 4px 8px;
+            outline: none;
+        }
+
         .transport {
             display: flex;
             justify-content: center;
@@ -624,6 +648,15 @@
         <div class="tag">Now Playing</div>
         <div class="filename" id="fileName">No folder loaded</div>
         <div class="track-count" id="trackCount"></div>
+        <div class="sort-row">
+            <span class="sort-label">Sort:</span>
+            <select class="sort-select" id="sortSelect">
+                <option value="az">A &rarr; Z</option>
+                <option value="za">Z &rarr; A</option>
+                <option value="oldest">Oldest First</option>
+                <option value="newest">Newest First</option>
+            </select>
+        </div>
     </div>
 
     <div class="transport">
@@ -777,6 +810,7 @@
     // --- Settings ---
     const DEFAULT_SETTINGS = {
         autoplay: true,
+        sortOrder: 'az',
         limiterEnabled: true,
         limiterCeiling: -1,
         boostWarning: true,
@@ -842,6 +876,7 @@
     const eqSlidersContainer = document.getElementById('eqSliders');
     const eqFreqLabels = document.getElementById('eqFreqLabels');
     const eqResetBtn = document.getElementById('eqReset');
+    const sortSelect = document.getElementById('sortSelect');
     const resetDefaults = document.getElementById('resetDefaults');
 
     // --- Audio state ---
@@ -861,8 +896,28 @@
     const SEMITONE = Math.pow(2, 1 / 12);
 
     // Playlist state
+    let rawFiles = [];
     let playlist = [];
     let currentTrackIndex = -1;
+
+    function sortPlaylist(files, order) {
+        const sorted = files.slice();
+        switch (order) {
+            case 'az':
+                sorted.sort((a, b) => a.name.localeCompare(b.name));
+                break;
+            case 'za':
+                sorted.sort((a, b) => b.name.localeCompare(a.name));
+                break;
+            case 'oldest':
+                sorted.sort((a, b) => a.lastModified - b.lastModified);
+                break;
+            case 'newest':
+                sorted.sort((a, b) => b.lastModified - a.lastModified);
+                break;
+        }
+        return sorted;
+    }
 
     // --- Build EQ sliders ---
     const eqSliderEls = [];
@@ -915,6 +970,7 @@
         ceilingControls.classList.toggle('disabled', !settings.limiterEnabled);
         boostWarningToggle.checked = settings.boostWarning;
         eqToggle.checked = settings.eqEnabled;
+        sortSelect.value = settings.sortOrder;
         eqGroup.classList.toggle('eq-bypassed', !settings.eqEnabled);
         eqSliderEls.forEach((slider, i) => {
             slider.value = settings.eqBands[i];
@@ -937,6 +993,18 @@
     autoplayToggle.addEventListener('change', () => {
         settings.autoplay = autoplayToggle.checked;
         saveSettings();
+    });
+
+    sortSelect.addEventListener('change', () => {
+        settings.sortOrder = sortSelect.value;
+        saveSettings();
+        if (rawFiles.length > 0) {
+            const currentFile = playlist[currentTrackIndex];
+            playlist = sortPlaylist(rawFiles, settings.sortOrder);
+            currentTrackIndex = currentFile ? playlist.indexOf(currentFile) : 0;
+            trackCount.textContent = 'Track ' + (currentTrackIndex + 1) + ' of ' + playlist.length;
+            updateNavButtons();
+        }
     });
 
     eqToggle.addEventListener('change', () => {
@@ -1032,17 +1100,16 @@
     filePicker.addEventListener('click', () => fileInput.click());
 
     fileInput.addEventListener('change', (e) => {
-        const files = Array.from(e.target.files)
-            .filter(f => f.name.toLowerCase().endsWith('.wav'))
-            .sort((a, b) => a.name.localeCompare(b.name));
+        rawFiles = Array.from(e.target.files)
+            .filter(f => f.name.toLowerCase().endsWith('.wav'));
 
-        if (files.length === 0) {
+        if (rawFiles.length === 0) {
             fileName.textContent = 'No .wav files found';
             trackCount.textContent = '';
             return;
         }
 
-        playlist = files;
+        playlist = sortPlaylist(rawFiles, settings.sortOrder);
         currentTrackIndex = 0;
 
         if (!audioCtx) {
