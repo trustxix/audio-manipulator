@@ -253,17 +253,6 @@
         miniPlayerTime.textContent = formatTime(pos);
         miniPlayerProgress.style.width = ((pos / audioBuffer.duration) * 100) + '%';
 
-        // Update lock screen position (throttled — only every ~1s)
-        if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
-            try {
-                navigator.mediaSession.setPositionState({
-                    duration: audioBuffer.duration,
-                    playbackRate: currentRate,
-                    position: Math.min(pos, audioBuffer.duration)
-                });
-            } catch (e) {}
-        }
-
         if (isPlaying) {
             animFrameId = requestAnimationFrame(updateSeekUI);
         }
@@ -382,7 +371,6 @@
             if (AM.queue && AM.queue.hasPrev()) {
                 AM.queue.playPrev();
             } else if (audioBuffer) {
-                // Restart current track
                 var wasPlaying = isPlaying;
                 stopPlayback();
                 bufferOffset = 0;
@@ -394,19 +382,11 @@
                 AM.queue.playNext();
             }
         });
-        navigator.mediaSession.setActionHandler('seekto', function (details) {
-            if (!audioBuffer) return;
-            bufferOffset = details.seekTime;
-            if (isPlaying) {
-                sourceNode.onended = null;
-                sourceNode.stop();
-                sourceNode = null;
-                startPlayback();
-            } else {
-                seekSlider.value = Math.round((bufferOffset / audioBuffer.duration) * 1000);
-                currentTimeEl.textContent = formatTime(bufferOffset);
-            }
-        });
+
+        // Explicitly clear seek handlers so iOS shows track skip buttons
+        // instead of 10-second skip buttons
+        try { navigator.mediaSession.setActionHandler('seekforward', null); } catch (e) {}
+        try { navigator.mediaSession.setActionHandler('seekbackward', null); } catch (e) {}
     }
 
     setupMediaSessionHandlers();
