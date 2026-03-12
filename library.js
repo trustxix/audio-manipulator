@@ -223,6 +223,10 @@
             var available = fileMap.has(entry.id);
             if (currentAvailFilter === 'available' && !available) return false;
             if (currentAvailFilter === 'unavailable' && available) return false;
+            if (currentAvailFilter === 'recent') {
+                var oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+                if (entry.dateAdded < oneDayAgo) return false;
+            }
             // Folder filter
             if (currentFolderFilter) {
                 var subfolder = getSubfolder(entry.relativePath);

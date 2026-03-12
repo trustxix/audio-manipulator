@@ -1,0 +1,147 @@
+<h2>Navigation Layout</h2>
+<p class="subtitle">Tab bar with three views — which player bar placement feels right?</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0a0a0a;border-radius:8px;overflow:hidden;height:400px;display:flex;flex-direction:column;font-family:-apple-system,sans-serif;color:#e0e0e0;position:relative;">
+        <!-- Status bar -->
+        <div style="padding:8px 16px;text-align:center;font-size:11px;color:#666;">Audio Manipulator</div>
+        <!-- Content area -->
+        <div style="flex:1;padding:12px;overflow:hidden;">
+          <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Library</div>
+          <div style="background:#141414;border-radius:6px;padding:10px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:13px;color:#ccc;">Track One.wav</div>
+              <div style="font-size:10px;color:#555;">Rock &bull; 3:42</div>
+            </div>
+            <div style="font-size:10px;color:#4a9eff;">&#9654;</div>
+          </div>
+          <div style="background:#141414;border-radius:6px;padding:10px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:13px;color:#ccc;">Track Two.wav</div>
+              <div style="font-size:10px;color:#555;">Jazz &bull; 5:18</div>
+            </div>
+            <div style="font-size:10px;color:#555;">&#9654;</div>
+          </div>
+          <div style="background:#141414;border-radius:6px;padding:10px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:13px;color:#888;">Missing Track.wav</div>
+              <div style="font-size:10px;color:#444;">Unknown &bull; unavailable</div>
+            </div>
+          </div>
+          <div style="background:#141414;border-radius:6px;padding:10px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:13px;color:#ccc;">Track Four.wav</div>
+              <div style="font-size:10px;color:#555;">Electronic &bull; 4:05</div>
+            </div>
+            <div style="font-size:10px;color:#555;">&#9654;</div>
+          </div>
+        </div>
+        <!-- Mini player bar -->
+        <div style="background:#1a1a1a;border-top:1px solid #333;padding:8px 12px;display:flex;align-items:center;gap:10px;">
+          <div style="width:32px;height:32px;background:#333;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;">&#9646;&#9646;</div>
+          <div style="flex:1;">
+            <div style="font-size:12px;color:#ccc;">Track One.wav</div>
+            <div style="height:2px;background:#333;border-radius:1px;margin-top:3px;"><div style="width:35%;height:100%;background:#4a9eff;border-radius:1px;"></div></div>
+          </div>
+          <div style="font-size:10px;color:#888;">1:18</div>
+        </div>
+        <!-- Tab bar -->
+        <div style="background:#111;border-top:1px solid #222;display:flex;padding:8px 0 12px;">
+          <div style="flex:1;text-align:center;">
+            <div style="font-size:16px;color:#4a9eff;">&#9776;</div>
+            <div style="font-size:9px;color:#4a9eff;margin-top:2px;">Library</div>
+          </div>
+          <div style="flex:1;text-align:center;">
+            <div style="font-size:16px;color:#666;">&#9836;</div>
+            <div style="font-size:9px;color:#666;margin-top:2px;">Playlists</div>
+          </div>
+          <div style="flex:1;text-align:center;">
+            <div style="font-size:16px;color:#666;">&#9654;</div>
+            <div style="font-size:9px;color:#666;margin-top:2px;">Queue</div>
+          </div>
+          <div style="flex:1;text-align:center;">
+            <div style="font-size:16px;color:#666;">&#9881;</div>
+            <div style="font-size:9px;color:#666;margin-top:2px;">Settings</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A: Mini Player + Tab Bar</h3>
+      <p>Persistent mini player above the tab bar. Tap it to expand into full Now Playing screen with all controls (EQ, speed, seek, etc.)</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0a0a0a;border-radius:8px;overflow:hidden;height:400px;display:flex;flex-direction:column;font-family:-apple-system,sans-serif;color:#e0e0e0;position:relative;">
+        <!-- Status bar -->
+        <div style="padding:8px 16px;text-align:center;font-size:11px;color:#666;">Audio Manipulator</div>
+        <!-- Content area -->
+        <div style="flex:1;padding:12px;overflow:hidden;">
+          <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Library</div>
+          <div style="background:#141414;border-radius:6px;padding:10px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:13px;color:#ccc;">Track One.wav</div>
+              <div style="font-size:10px;color:#555;">Rock &bull; 3:42</div>
+            </div>
+            <div style="font-size:10px;color:#4a9eff;">&#9654;</div>
+          </div>
+          <div style="background:#141414;border-radius:6px;padding:10px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:13px;color:#ccc;">Track Two.wav</div>
+              <div style="font-size:10px;color:#555;">Jazz &bull; 5:18</div>
+            </div>
+            <div style="font-size:10px;color:#555;">&#9654;</div>
+          </div>
+          <div style="background:#141414;border-radius:6px;padding:10px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:13px;color:#888;">Missing Track.wav</div>
+              <div style="font-size:10px;color:#444;">Unknown &bull; unavailable</div>
+            </div>
+          </div>
+          <div style="background:#141414;border-radius:6px;padding:10px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:13px;color:#ccc;">Track Four.wav</div>
+              <div style="font-size:10px;color:#555;">Electronic &bull; 4:05</div>
+            </div>
+            <div style="font-size:10px;color:#555;">&#9654;</div>
+          </div>
+          <div style="background:#141414;border-radius:6px;padding:10px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:13px;color:#ccc;">Track Five.wav</div>
+              <div style="font-size:10px;color:#555;">Ambient &bull; 6:30</div>
+            </div>
+            <div style="font-size:10px;color:#555;">&#9654;</div>
+          </div>
+        </div>
+        <!-- Tab bar (Now Playing is a tab) -->
+        <div style="background:#111;border-top:1px solid #222;display:flex;padding:8px 0 12px;">
+          <div style="flex:1;text-align:center;">
+            <div style="font-size:16px;color:#4a9eff;">&#9776;</div>
+            <div style="font-size:9px;color:#4a9eff;margin-top:2px;">Library</div>
+          </div>
+          <div style="flex:1;text-align:center;">
+            <div style="font-size:16px;color:#666;">&#9836;</div>
+            <div style="font-size:9px;color:#666;margin-top:2px;">Playlists</div>
+          </div>
+          <div style="flex:1;text-align:center;position:relative;">
+            <div style="font-size:16px;color:#666;">&#9654;</div>
+            <div style="font-size:9px;color:#666;margin-top:2px;">Now Playing</div>
+            <div style="position:absolute;top:0;right:12px;width:6px;height:6px;background:#4a9eff;border-radius:50%;"></div>
+          </div>
+          <div style="flex:1;text-align:center;">
+            <div style="font-size:16px;color:#666;">&#9881;</div>
+            <div style="font-size:9px;color:#666;margin-top:2px;">Settings</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B: Now Playing as Tab</h3>
+      <p>No mini player — Now Playing is its own tab (with blue dot when playing). More content space in Library/Playlists views, but you switch tabs to see controls.</p>
+    </div>
+  </div>
+</div>
