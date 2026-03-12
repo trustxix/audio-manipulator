@@ -39,6 +39,9 @@
     var miniPlayerVisible = false;
     var isReversed = false;
     var originalBuffer = null;    // Stores the original AudioBuffer when reversed
+    var abLoopA = -1;            // A/B loop point A (seconds)
+    var abLoopB = -1;            // A/B loop point B (seconds)
+    var abLoopState = 0;         // 0=off, 1=A set, 2=looping
 
     // Current track metadata (from library entry)
     var currentTrackId = null;
@@ -57,6 +60,8 @@
     var repeatIcon = document.getElementById('repeatIcon');
     var nextBtn = document.getElementById('nextBtn');
     var reverseBtn = document.getElementById('reverseBtn');
+    var abLoopBtn = document.getElementById('abLoopBtn');
+    var abLoopLabel = document.getElementById('abLoopLabel');
     var rateSlider = document.getElementById('rateSlider');
     var rateValue = document.getElementById('rateValue');
     var volumeSlider = document.getElementById('volumeSlider');
@@ -294,6 +299,17 @@
             } catch (e) {}
         }
 
+        // A/B loop: jump back to A when reaching B
+        if (isPlaying && abLoopState === 2 && pos >= abLoopB) {
+            sourceNode.onended = null;
+            sourceNode.stop();
+            sourceNode = null;
+            isPlaying = false;
+            bufferOffset = abLoopA;
+            startPlayback();
+            return;
+        }
+
         if (isPlaying) {
             animFrameId = requestAnimationFrame(updateSeekUI);
         }
@@ -509,6 +525,7 @@
         originalBuffer = null;
         isReversed = false;
         reverseBtn.classList.remove('active');
+        clearAbLoop();
         playBtn.disabled = true;
         seekSlider.disabled = true;
         currentTrackId = trackId;
@@ -791,6 +808,41 @@
         }
         return reversed;
     }
+
+    // --- A/B Loop ---
+    function clearAbLoop() {
+        abLoopA = -1;
+        abLoopB = -1;
+        abLoopState = 0;
+        abLoopBtn.classList.remove('active');
+        abLoopLabel.childNodes[0].textContent = 'A/B ';
+    }
+
+    abLoopBtn.addEventListener('click', function () {
+        if (!audioBuffer) return;
+        if (AM.haptic) AM.haptic();
+        var pos = getCurrentBufferPosition();
+
+        if (abLoopState === 0) {
+            // Set point A
+            abLoopA = pos;
+            abLoopState = 1;
+            abLoopBtn.classList.add('active');
+            abLoopLabel.childNodes[0].textContent = 'A: ' + formatTime(abLoopA) + ' → ? ';
+        } else if (abLoopState === 1) {
+            // Set point B
+            if (pos <= abLoopA) {
+                AM.showToast('Point B must be after A');
+                return;
+            }
+            abLoopB = pos;
+            abLoopState = 2;
+            abLoopLabel.childNodes[0].textContent = formatTime(abLoopA) + ' → ' + formatTime(abLoopB) + ' ';
+        } else {
+            // Clear loop
+            clearAbLoop();
+        }
+    });
 
     reverseBtn.addEventListener('click', function () {
         if (!audioBuffer) return;
