@@ -89,10 +89,46 @@
             text-overflow: ellipsis;
         }
 
+        .now-playing .track-count {
+            font-size: 11px;
+            color: #555;
+            margin-top: 4px;
+        }
+
         .transport {
             display: flex;
             justify-content: center;
+            align-items: center;
+            gap: 16px;
             margin-bottom: 28px;
+        }
+
+        .transport-btn {
+            width: 44px;
+            height: 44px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .transport-btn:active {
+            background: #333;
+        }
+
+        .transport-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .transport-btn .icon {
+            font-size: 14px;
+            color: #e0e0e0;
+            line-height: 1;
         }
 
         .play-btn {
@@ -265,18 +301,28 @@
 
     <div class="file-picker" id="filePicker">
         <div class="icon">&#128194;</div>
-        <div class="label">Tap to load a .wav file</div>
-        <input type="file" id="fileInput" accept=".wav,audio/wav">
+        <div class="label">Tap to load a folder</div>
+        <input type="file" id="fileInput" accept=".wav,audio/wav" webkitdirectory>
     </div>
 
     <div class="now-playing">
         <div class="tag">Now Playing</div>
-        <div class="filename" id="fileName">No file loaded</div>
+        <div class="filename" id="fileName">No folder loaded</div>
+        <div class="track-count" id="trackCount"></div>
     </div>
 
     <div class="transport">
+        <button class="transport-btn" id="prevBtn" disabled>
+            <span class="icon">&#9198;</span>
+        </button>
+        <button class="transport-btn" id="restartBtn" disabled>
+            <span class="icon">&#9632;</span>
+        </button>
         <button class="play-btn" id="playBtn" disabled>
             <span class="icon" id="playIcon">&#9654;</span>
+        </button>
+        <button class="transport-btn" id="nextBtn" disabled>
+            <span class="icon">&#9197;</span>
         </button>
     </div>
 
@@ -324,8 +370,12 @@
     const filePicker = document.getElementById('filePicker');
     const fileInput = document.getElementById('fileInput');
     const fileName = document.getElementById('fileName');
+    const trackCount = document.getElementById('trackCount');
     const playBtn = document.getElementById('playBtn');
     const playIcon = document.getElementById('playIcon');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const restartBtn = document.getElementById('restartBtn');
     const rateSlider = document.getElementById('rateSlider');
     const rateValue = document.getElementById('rateValue');
     const volumeSlider = document.getElementById('volumeSlider');
@@ -350,15 +400,25 @@
     let semitones = 0;
     const SEMITONE = Math.pow(2, 1 / 12);
 
+    // Playlist state
+    let playlist = [];
+    let currentTrackIndex = -1;
+
     filePicker.addEventListener('click', () => fileInput.click());
 
     fileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+        const files = Array.from(e.target.files)
+            .filter(f => f.name.toLowerCase().endsWith('.wav'))
+            .sort((a, b) => a.name.localeCompare(b.name));
 
-        stopPlayback();
-        audioBuffer = null;
-        playBtn.disabled = true;
+        if (files.length === 0) {
+            fileName.textContent = 'No .wav files found';
+            trackCount.textContent = '';
+            return;
+        }
+
+        playlist = files;
+        currentTrackIndex = 0;
 
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -371,15 +431,31 @@
             audioCtx.resume();
         }
 
+        loadTrack(0);
+    });
+
+    function loadTrack(index) {
+        if (index < 0 || index >= playlist.length) return;
+
+        stopPlayback();
+        audioBuffer = null;
+        playBtn.disabled = true;
+        seekSlider.disabled = true;
+        currentTrackIndex = index;
+        updateNavButtons();
+
         fileName.textContent = 'Loading...';
 
+        const file = playlist[index];
         const reader = new FileReader();
         reader.onload = (event) => {
             audioCtx.decodeAudioData(event.target.result)
                 .then((buffer) => {
                     audioBuffer = buffer;
                     fileName.textContent = file.name;
+                    trackCount.textContent = 'Track ' + (index + 1) + ' of ' + playlist.length;
                     playBtn.disabled = false;
+                    restartBtn.disabled = false;
                     seekSlider.disabled = false;
                     seekSlider.value = 0;
                     totalTimeEl.textContent = formatTime(buffer.duration);
@@ -388,12 +464,42 @@
                 })
                 .catch(() => {
                     fileName.textContent = 'Error: could not decode file';
+                    trackCount.textContent = '';
                 });
         };
         reader.onerror = () => {
             fileName.textContent = 'Error: could not read file';
         };
         reader.readAsArrayBuffer(file);
+    }
+
+    function updateNavButtons() {
+        prevBtn.disabled = playlist.length === 0 || currentTrackIndex <= 0;
+        nextBtn.disabled = playlist.length === 0 || currentTrackIndex >= playlist.length - 1;
+    }
+
+    prevBtn.addEventListener('click', () => {
+        if (currentTrackIndex > 0) {
+            loadTrack(currentTrackIndex - 1);
+        }
+    });
+
+    nextBtn.addEventListener('click', () => {
+        if (currentTrackIndex < playlist.length - 1) {
+            loadTrack(currentTrackIndex + 1);
+        }
+    });
+
+    restartBtn.addEventListener('click', () => {
+        if (!audioBuffer) return;
+        const wasPlaying = isPlaying;
+        stopPlayback();
+        bufferOffset = 0;
+        seekSlider.value = 0;
+        currentTimeEl.textContent = '0:00';
+        if (wasPlaying) {
+            startPlayback();
+        }
     });
 
     function formatTime(sec) {
@@ -445,6 +551,11 @@
                 seekSlider.value = 0;
                 currentTimeEl.textContent = '0:00';
                 if (animFrameId) cancelAnimationFrame(animFrameId);
+                // Auto-advance to next track
+                if (currentTrackIndex < playlist.length - 1) {
+                    loadTrack(currentTrackIndex + 1);
+                    startPlayback();
+                }
             }
         };
 
