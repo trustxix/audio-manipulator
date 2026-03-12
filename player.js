@@ -464,6 +464,7 @@
     updateRepeatUI();
 
     repeatBtn.addEventListener('click', function () {
+        if (AM.haptic) AM.haptic();
         if (settings.repeatMode === 'off') {
             settings.repeatMode = 'all';
         } else if (settings.repeatMode === 'all') {
@@ -561,6 +562,7 @@
     // Play/Pause
     playBtn.addEventListener('click', function () {
         if (!audioBuffer) return;
+        if (AM.haptic) AM.haptic();
         if (isPlaying) {
             pausePlayback();
         } else {
@@ -572,6 +574,7 @@
     miniPlayerPlayBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         if (!audioBuffer) return;
+        if (AM.haptic) AM.haptic();
         if (isPlaying) {
             pausePlayback();
         } else {
@@ -582,6 +585,7 @@
     // Restart track from beginning
     restartBtn.addEventListener('click', function () {
         if (!audioBuffer) return;
+        if (AM.haptic) AM.haptic();
         var wasPlaying = isPlaying;
         stopPlayback();
         bufferOffset = 0;
@@ -595,6 +599,7 @@
 
     // Prev track
     prevBtn.addEventListener('click', function () {
+        if (AM.haptic) AM.haptic();
         if (AM.queue && AM.queue.hasPrev()) {
             AM.queue.playPrev();
         }
@@ -602,6 +607,7 @@
 
     // Next
     nextBtn.addEventListener('click', function () {
+        if (AM.haptic) AM.haptic();
         if (AM.queue && AM.queue.hasNext()) {
             AM.queue.playNext();
         }

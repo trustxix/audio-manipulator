@@ -198,6 +198,7 @@
 
     // --- Favorites ---
     function toggleFavorite(entryId) {
+        if (AM.haptic) AM.haptic();
         if (favoriteIds.has(entryId)) {
             favoriteIds.delete(entryId);
         } else {

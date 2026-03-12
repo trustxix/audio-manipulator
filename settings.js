@@ -18,6 +18,7 @@
     var ceilingControls = document.getElementById('ceilingControls');
     var boostWarningToggle = document.getElementById('boostWarningToggle');
     var monoToggle = document.getElementById('monoToggle');
+    var hapticToggle = document.getElementById('hapticToggle');
     var repeatSelect = document.getElementById('repeatSelect');
     var settingsLoadBtn = document.getElementById('settingsLoadBtn');
     var clearLibraryBtn = document.getElementById('clearLibraryBtn');
@@ -35,6 +36,7 @@
         ceilingControls.classList.toggle('disabled', !settings.limiterEnabled);
         boostWarningToggle.checked = settings.boostWarning;
         monoToggle.checked = settings.monoEnabled;
+        hapticToggle.checked = settings.hapticEnabled;
         repeatSelect.value = settings.repeatMode;
     }
 
@@ -78,6 +80,12 @@
         settings.monoEnabled = monoToggle.checked;
         storage.saveSettings(settings);
         player.updateAudioChain();
+    });
+
+    hapticToggle.addEventListener('change', function () {
+        settings.hapticEnabled = hapticToggle.checked;
+        storage.saveSettings(settings);
+        if (settings.hapticEnabled) AM.haptic(15); // test vibration on enable
     });
 
     repeatSelect.addEventListener('change', function () {

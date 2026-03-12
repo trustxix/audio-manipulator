@@ -115,6 +115,13 @@
                         </label>
                     </div>
                     <div class="setting-row">
+                        <span class="setting-label">Haptic Feedback <button class="info-btn" data-info-title="Haptic Feedback" data-info="Provides a short vibration on key actions like play/pause, next/prev track, and toggling favorites. Works on supported devices (mainly Android).">i</button></span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="hapticToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-row">
                         <span class="setting-label">Default Repeat <button class="info-btn" data-info-title="Repeat Mode" data-info="Off: stops after the last track. Repeat All: loops the entire queue. Repeat One: loops the current track endlessly.">i</button></span>
                         <select class="setting-select" id="repeatSelect">
                             <option value="off">Off</option>
@@ -203,7 +210,7 @@
                     </div>
                     <div class="setting-description">Clears settings, library, and all playlists.</div>
                 </div>
-                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v29</div>
+                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v30</div>
             </div>
         </div>
 
@@ -531,6 +538,15 @@
                 if (e.target === popup) popup.classList.remove('visible');
             });
         })();
+
+        // Haptic feedback utility
+        window.AM.haptic = function (duration) {
+            var s = window.AM.player.getSettings();
+            if (!s.hapticEnabled) return;
+            if (navigator.vibrate) {
+                navigator.vibrate(duration || 10);
+            }
+        };
 
         // Service Worker
         if ('serviceWorker' in navigator) {

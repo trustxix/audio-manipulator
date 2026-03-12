@@ -56,7 +56,8 @@
         eqEnabled: true,
         eqBands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         monoEnabled: false,
-        repeatMode: 'off'
+        repeatMode: 'off',
+        hapticEnabled: false
     };
 
     window.AM = window.AM || {};
