@@ -37,6 +37,8 @@
     var semitones = 0;
     var SEMITONE = Math.pow(2, 1 / 12);
     var miniPlayerVisible = false;
+    var isReversed = false;
+    var originalBuffer = null;    // Stores the original AudioBuffer when reversed
 
     // Current track metadata (from library entry)
     var currentTrackId = null;
@@ -54,6 +56,7 @@
     var repeatBtn = document.getElementById('repeatBtn');
     var repeatIcon = document.getElementById('repeatIcon');
     var nextBtn = document.getElementById('nextBtn');
+    var reverseBtn = document.getElementById('reverseBtn');
     var rateSlider = document.getElementById('rateSlider');
     var rateValue = document.getElementById('rateValue');
     var volumeSlider = document.getElementById('volumeSlider');
@@ -503,6 +506,9 @@
         ensureAudioContext();
         stopPlayback();
         audioBuffer = null;
+        originalBuffer = null;
+        isReversed = false;
+        reverseBtn.classList.remove('active');
         playBtn.disabled = true;
         seekSlider.disabled = true;
         currentTrackId = trackId;
@@ -736,6 +742,61 @@
         eqFilters.forEach(function (f) { f.gain.value = 0; });
         updateFreqLabelColors();
         AM.storage.saveSettings(settings);
+    });
+
+    // --- Reverse playback ---
+    function createReversedBuffer(buffer) {
+        var reversed = audioCtx.createBuffer(
+            buffer.numberOfChannels,
+            buffer.length,
+            buffer.sampleRate
+        );
+        for (var ch = 0; ch < buffer.numberOfChannels; ch++) {
+            var src = buffer.getChannelData(ch);
+            var dst = reversed.getChannelData(ch);
+            for (var i = 0; i < src.length; i++) {
+                dst[i] = src[src.length - 1 - i];
+            }
+        }
+        return reversed;
+    }
+
+    reverseBtn.addEventListener('click', function () {
+        if (!audioBuffer) return;
+        if (AM.haptic) AM.haptic();
+
+        var wasPlaying = isPlaying;
+        var pos = getCurrentBufferPosition();
+        if (wasPlaying) {
+            sourceNode.onended = null;
+            sourceNode.stop();
+            sourceNode = null;
+            isPlaying = false;
+        }
+
+        if (!isReversed) {
+            originalBuffer = audioBuffer;
+            audioBuffer = createReversedBuffer(originalBuffer);
+            isReversed = true;
+        } else {
+            audioBuffer = originalBuffer;
+            originalBuffer = null;
+            isReversed = false;
+        }
+
+        // Mirror playback position
+        bufferOffset = audioBuffer.duration - pos;
+        if (bufferOffset < 0) bufferOffset = 0;
+
+        reverseBtn.classList.toggle('active', isReversed);
+
+        if (wasPlaying) {
+            startPlayback();
+        } else {
+            // Update seek UI to reflect mirrored position
+            seekSlider.value = Math.round((bufferOffset / audioBuffer.duration) * 1000);
+            currentTimeEl.textContent = formatTime(bufferOffset);
+        }
     });
 
     // --- Public API ---

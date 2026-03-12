@@ -287,6 +287,39 @@ body {
     line-height: 1;
 }
 
+.extra-transport-row {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin: 4px 0 8px;
+}
+
+.extra-transport-btn {
+    background: none;
+    border: 1px solid #333;
+    border-radius: 16px;
+    color: #888;
+    font-size: 13px;
+    padding: 5px 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.extra-transport-btn .icon {
+    font-size: 12px;
+}
+
+.extra-transport-btn .btn-label {
+    font-size: 12px;
+}
+
+.extra-transport-btn.active {
+    color: #4a9eff;
+    border-color: #4a9eff;
+}
+
 .play-btn {
     width: 60px;
     height: 60px;
