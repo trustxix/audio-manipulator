@@ -160,8 +160,38 @@
     // iOS Safari only allows AudioContext creation/resume inside a user gesture.
     // By creating it on the first tap anywhere in the app, it's already running
     // by the time the async decode completes later.
+    //
+    // Additionally, iOS plays Web Audio through the "ambient" audio session by
+    // default, which is silenced by the Ring/Silent hardware switch. Playing a
+    // brief moment through a standard <audio> element forces iOS to switch to
+    // the "playback" session category — making audio work like a real music app
+    // (plays through the mute switch, shows in Control Center, etc.).
+    var audioUnlocked = false;
     function warmUpAudioContext() {
+        if (audioUnlocked) return;
+        audioUnlocked = true;
+
         ensureAudioContext();
+
+        // Force iOS into "playback" audio session via a silent <audio> element.
+        // This tiny base64 WAV is 44 bytes of silence — just enough to switch
+        // the audio category so Web Audio API output reaches the speakers even
+        // when the mute switch is on.
+        try {
+            var silentWav = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+            var unlock = new Audio(silentWav);
+            unlock.setAttribute('playsinline', '');
+            unlock.volume = 0.01;
+            unlock.play().then(function () {
+                unlock.pause();
+                unlock.remove();
+            }).catch(function () {
+                // Ignore — not all browsers need this
+            });
+        } catch (e) {
+            // Fallback: not critical, just means mute switch may silence audio
+        }
+
         document.removeEventListener('touchstart', warmUpAudioContext, true);
         document.removeEventListener('click', warmUpAudioContext, true);
     }
