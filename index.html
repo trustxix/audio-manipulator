@@ -211,7 +211,7 @@
                     </div>
                     <div class="setting-description">Clears settings, library, and all playlists.</div>
                 </div>
-                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v37</div>
+                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v38</div>
             </div>
         </div>
 
@@ -321,6 +321,22 @@
                 <div class="control-header">
                     <span class="control-label">Equalizer</span>
                     <button class="eq-reset-btn" id="eqReset">Flat</button>
+                </div>
+                <div class="eq-preset-row">
+                    <select class="eq-preset-select" id="eqPresetSelect">
+                        <option value="">Presets</option>
+                        <option value="flat">Flat</option>
+                        <option value="bass">Bass Boost</option>
+                        <option value="treble">Treble Boost</option>
+                        <option value="vocal">Vocal</option>
+                        <option value="rock">Rock</option>
+                        <option value="electronic">Electronic</option>
+                        <option value="classical">Classical</option>
+                        <option value="loudness">Loudness</option>
+                        <option value="hiphop">Hip-Hop</option>
+                        <option value="acoustic">Acoustic</option>
+                    </select>
+                    <button class="info-btn" data-info-title="EQ Presets" data-info="Apply a predefined equalizer curve. Each preset adjusts the 10 frequency bands to match a specific genre or listening preference. You can further tweak bands after selecting a preset.">i</button>
                 </div>
                 <div class="eq-container">
                     <div class="eq-db-labels">

@@ -737,11 +737,42 @@
 
     // EQ Reset
     eqResetBtn.addEventListener('click', function () {
-        settings.eqBands = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-        eqSliderEls.forEach(function (slider) { slider.value = 0; });
-        eqFilters.forEach(function (f) { f.gain.value = 0; });
+        applyEqPreset([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        eqPresetSelect.value = 'flat';
+    });
+
+    // EQ Presets
+    // Bands: 31, 62, 125, 250, 500, 1k, 2k, 4k, 8k, 16k
+    var EQ_PRESETS = {
+        flat:       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        bass:       [6, 5, 4, 2, 0, 0, 0, 0, 0, 0],
+        treble:     [0, 0, 0, 0, 0, 1, 2, 4, 5, 6],
+        vocal:      [-2, -1, 0, 2, 4, 4, 3, 1, 0, -1],
+        rock:       [4, 3, 1, 0, -1, 0, 1, 3, 4, 4],
+        electronic: [5, 4, 2, 0, -1, 0, 1, 3, 4, 5],
+        classical:  [3, 2, 0, 0, 0, 0, 0, 1, 2, 3],
+        loudness:   [4, 3, 0, 0, -1, 0, -1, 0, 3, 4],
+        hiphop:     [5, 4, 2, 1, 0, -1, 0, 1, 2, 3],
+        acoustic:   [2, 1, 0, 1, 2, 1, 1, 2, 2, 1]
+    };
+
+    var eqPresetSelect = document.getElementById('eqPresetSelect');
+
+    function applyEqPreset(bands) {
+        settings.eqBands = bands.slice();
+        eqSliderEls.forEach(function (slider, i) {
+            slider.value = bands[i];
+            if (eqFilters[i]) eqFilters[i].gain.value = bands[i];
+        });
         updateFreqLabelColors();
         AM.storage.saveSettings(settings);
+    }
+
+    eqPresetSelect.addEventListener('change', function () {
+        var key = eqPresetSelect.value;
+        if (key && EQ_PRESETS[key]) {
+            applyEqPreset(EQ_PRESETS[key]);
+        }
     });
 
     // --- Reverse playback ---
