@@ -310,6 +310,114 @@
             color: #555;
         }
 
+        /* EQ styles */
+        .eq-container {
+            display: flex;
+            align-items: stretch;
+            gap: 2px;
+        }
+
+        .eq-db-labels {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 2px 6px 2px 0;
+            font-size: 10px;
+            color: #555;
+            font-family: 'SF Mono', SFMono-Regular, Menlo, monospace;
+            min-width: 24px;
+        }
+
+        .eq-sliders {
+            display: flex;
+            flex: 1;
+            justify-content: space-around;
+            align-items: center;
+            position: relative;
+            padding: 4px 0;
+        }
+
+        .eq-sliders::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            height: 1px;
+            background: #333;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .eq-band {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            position: relative;
+            z-index: 1;
+        }
+
+        .eq-band input[type="range"] {
+            writing-mode: vertical-lr;
+            direction: rtl;
+            width: 28px;
+            height: 120px;
+            background: transparent;
+            margin: 0;
+            padding: 0;
+        }
+
+        .eq-band input[type="range"]::-webkit-slider-runnable-track {
+            width: 4px;
+            background: #444;
+            border-radius: 2px;
+        }
+
+        .eq-band input[type="range"]::-webkit-slider-thumb {
+            width: 18px;
+            height: 18px;
+            background: #fff;
+            border-radius: 50%;
+            margin-left: -7px;
+        }
+
+        .eq-freq-labels {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 6px;
+            padding-left: 32px;
+        }
+
+        .eq-freq-labels span {
+            font-size: 9px;
+            color: #555;
+            text-align: center;
+            flex: 1;
+            font-family: 'SF Mono', SFMono-Regular, Menlo, monospace;
+        }
+
+        .eq-reset-btn {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #888;
+            font-size: 12px;
+            padding: 4px 10px;
+            cursor: pointer;
+        }
+
+        .eq-reset-btn:active {
+            background: #333;
+        }
+
+        .eq-bypassed .eq-sliders,
+        .eq-bypassed .eq-db-labels,
+        .eq-bypassed .eq-freq-labels {
+            opacity: 0.3;
+        }
+
         /* Volume boost warning styles */
         .volume-warn input[type="range"] {
             background: #4d3800;
@@ -561,6 +669,22 @@
         </div>
     </div>
 
+    <div class="control-group" id="eqGroup">
+        <div class="control-header">
+            <span class="control-label">Equalizer</span>
+            <button class="eq-reset-btn" id="eqReset">Flat</button>
+        </div>
+        <div class="eq-container">
+            <div class="eq-db-labels">
+                <span>+12</span>
+                <span>0</span>
+                <span>-12</span>
+            </div>
+            <div class="eq-sliders" id="eqSliders"></div>
+        </div>
+        <div class="eq-freq-labels" id="eqFreqLabels"></div>
+    </div>
+
     <div class="control-group" id="volumeGroup">
         <div class="control-header">
             <span class="control-label">Volume</span>
@@ -591,6 +715,18 @@
                     </label>
                 </div>
                 <div class="setting-description">Auto-start playback on prev/next and advance to the next track when the current one ends.</div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-section-title">Equalizer</div>
+                <div class="setting-row">
+                    <span class="setting-label">Equalizer</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="eqToggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="setting-description">10-band graphic equalizer. When disabled, audio bypasses all EQ filters.</div>
             </div>
 
             <div class="settings-section">
@@ -631,20 +767,36 @@
     </div>
 
     <script>
+    // --- EQ band definitions ---
+    const EQ_FREQUENCIES = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+
+    function formatFreq(hz) {
+        return hz >= 1000 ? (hz / 1000) + 'k' : String(hz);
+    }
+
     // --- Settings ---
     const DEFAULT_SETTINGS = {
         autoplay: true,
         limiterEnabled: true,
         limiterCeiling: -1,
-        boostWarning: true
+        boostWarning: true,
+        eqEnabled: true,
+        eqBands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     };
 
     function loadSettings() {
         try {
             const saved = localStorage.getItem('audio-manipulator-settings');
-            if (saved) return Object.assign({}, DEFAULT_SETTINGS, JSON.parse(saved));
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                const merged = Object.assign({}, DEFAULT_SETTINGS, parsed);
+                if (!Array.isArray(merged.eqBands) || merged.eqBands.length !== 10) {
+                    merged.eqBands = DEFAULT_SETTINGS.eqBands.slice();
+                }
+                return merged;
+            }
         } catch (e) {}
-        return Object.assign({}, DEFAULT_SETTINGS);
+        return Object.assign({}, DEFAULT_SETTINGS, { eqBands: DEFAULT_SETTINGS.eqBands.slice() });
     }
 
     function saveSettings() {
@@ -685,6 +837,11 @@
     const ceilingValue = document.getElementById('ceilingValue');
     const ceilingControls = document.getElementById('ceilingControls');
     const boostWarningToggle = document.getElementById('boostWarningToggle');
+    const eqToggle = document.getElementById('eqToggle');
+    const eqGroup = document.getElementById('eqGroup');
+    const eqSlidersContainer = document.getElementById('eqSliders');
+    const eqFreqLabels = document.getElementById('eqFreqLabels');
+    const eqResetBtn = document.getElementById('eqReset');
     const resetDefaults = document.getElementById('resetDefaults');
 
     // --- Audio state ---
@@ -693,6 +850,7 @@
     let sourceNode = null;
     let gainNode = null;
     let limiterNode = null;
+    let eqFilters = [];
     let isPlaying = false;
     let segmentStartTime = 0;
     let bufferOffset = 0;
@@ -706,6 +864,48 @@
     let playlist = [];
     let currentTrackIndex = -1;
 
+    // --- Build EQ sliders ---
+    const eqSliderEls = [];
+
+    EQ_FREQUENCIES.forEach((freq, i) => {
+        const band = document.createElement('div');
+        band.className = 'eq-band';
+
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = '-12';
+        slider.max = '12';
+        slider.step = '0.5';
+        slider.value = settings.eqBands[i];
+
+        slider.addEventListener('input', () => {
+            const val = parseFloat(slider.value);
+            settings.eqBands[i] = val;
+            if (eqFilters[i]) {
+                eqFilters[i].gain.value = val;
+            }
+            updateFreqLabelColors();
+            saveSettings();
+        });
+
+        band.appendChild(slider);
+        eqSlidersContainer.appendChild(band);
+        eqSliderEls.push(slider);
+
+        const label = document.createElement('span');
+        label.textContent = formatFreq(freq);
+        eqFreqLabels.appendChild(label);
+    });
+
+    function updateFreqLabelColors() {
+        const labels = eqFreqLabels.children;
+        for (let i = 0; i < labels.length; i++) {
+            labels[i].style.color = settings.eqBands[i] !== 0 ? '#4a9eff' : '#555';
+        }
+    }
+
+    updateFreqLabelColors();
+
     // --- Apply loaded settings to UI ---
     function applySettingsToUI() {
         autoplayToggle.checked = settings.autoplay;
@@ -714,6 +914,12 @@
         ceilingValue.textContent = settings.limiterCeiling.toFixed(1) + ' dB';
         ceilingControls.classList.toggle('disabled', !settings.limiterEnabled);
         boostWarningToggle.checked = settings.boostWarning;
+        eqToggle.checked = settings.eqEnabled;
+        eqGroup.classList.toggle('eq-bypassed', !settings.eqEnabled);
+        eqSliderEls.forEach((slider, i) => {
+            slider.value = settings.eqBands[i];
+        });
+        updateFreqLabelColors();
         updateBoostWarning();
     }
 
@@ -730,6 +936,13 @@
 
     autoplayToggle.addEventListener('change', () => {
         settings.autoplay = autoplayToggle.checked;
+        saveSettings();
+    });
+
+    eqToggle.addEventListener('change', () => {
+        settings.eqEnabled = eqToggle.checked;
+        eqGroup.classList.toggle('eq-bypassed', !settings.eqEnabled);
+        updateAudioChain();
         saveSettings();
     });
 
@@ -757,24 +970,48 @@
     });
 
     resetDefaults.addEventListener('click', () => {
-        settings = Object.assign({}, DEFAULT_SETTINGS);
+        settings = Object.assign({}, DEFAULT_SETTINGS, { eqBands: DEFAULT_SETTINGS.eqBands.slice() });
         saveSettings();
         applySettingsToUI();
+        eqFilters.forEach((f, i) => { f.gain.value = 0; });
         updateAudioChain();
+    });
+
+    // --- EQ reset ---
+    eqResetBtn.addEventListener('click', () => {
+        settings.eqBands = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        eqSliderEls.forEach(slider => { slider.value = 0; });
+        eqFilters.forEach(f => { f.gain.value = 0; });
+        updateFreqLabelColors();
+        saveSettings();
     });
 
     // --- Audio chain management ---
     function updateAudioChain() {
         if (!gainNode || !audioCtx) return;
+
+        // Disconnect everything
         gainNode.disconnect();
+        eqFilters.forEach(f => f.disconnect());
         if (limiterNode) limiterNode.disconnect();
+
+        // Build chain: gain → [eq filters] → [limiter] → destination
+        let lastNode = gainNode;
+
+        if (settings.eqEnabled && eqFilters.length > 0) {
+            gainNode.connect(eqFilters[0]);
+            for (let i = 0; i < eqFilters.length - 1; i++) {
+                eqFilters[i].connect(eqFilters[i + 1]);
+            }
+            lastNode = eqFilters[eqFilters.length - 1];
+        }
 
         if (settings.limiterEnabled && limiterNode) {
             limiterNode.threshold.value = settings.limiterCeiling;
-            gainNode.connect(limiterNode);
+            lastNode.connect(limiterNode);
             limiterNode.connect(audioCtx.destination);
         } else {
-            gainNode.connect(audioCtx.destination);
+            lastNode.connect(audioCtx.destination);
         }
     }
 
@@ -812,6 +1049,22 @@
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             gainNode = audioCtx.createGain();
             gainNode.gain.value = parseFloat(volumeSlider.value);
+
+            // Create EQ filters
+            EQ_FREQUENCIES.forEach((freq, i) => {
+                const filter = audioCtx.createBiquadFilter();
+                if (i === 0) {
+                    filter.type = 'lowshelf';
+                } else if (i === EQ_FREQUENCIES.length - 1) {
+                    filter.type = 'highshelf';
+                } else {
+                    filter.type = 'peaking';
+                    filter.Q.value = 1.4;
+                }
+                filter.frequency.value = freq;
+                filter.gain.value = settings.eqBands[i];
+                eqFilters.push(filter);
+            });
 
             // Create limiter (DynamicsCompressor configured as brick-wall limiter)
             limiterNode = audioCtx.createDynamicsCompressor();
