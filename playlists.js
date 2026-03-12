@@ -26,9 +26,14 @@
     var playlistPlayAllBtn = document.getElementById('playlistPlayAllBtn');
     var playlistShuffleBtn = document.getElementById('playlistShuffleBtn');
     var playlistTrackList = document.getElementById('playlistTrackList');
+    var playlistSearch = document.getElementById('playlistSearch');
 
     // --- Init ---
     renderPlaylistList();
+
+    playlistSearch.addEventListener('input', function () {
+        if (currentPlaylistId) renderPlaylistInside(currentPlaylistId);
+    });
 
     // --- Create playlist ---
     playlistAddBtn.addEventListener('click', function () {
@@ -199,6 +204,7 @@
 
     function showInsideView(playlistId) {
         currentPlaylistId = playlistId;
+        playlistSearch.value = '';
         playlistListView.style.display = 'none';
         playlistInsideView.style.display = '';
         renderPlaylistInside(playlistId);
@@ -368,9 +374,17 @@
         playlistInsideName.textContent = pl.name;
         playlistTrackList.innerHTML = '';
 
+        var searchQuery = playlistSearch.value.trim().toLowerCase();
+
         pl.trackIds.forEach(function (trackId, index) {
             var entry = library.getEntry(trackId);
             var available = entry && library.isAvailable(trackId);
+
+            // Filter by search query
+            if (searchQuery && entry) {
+                var text = (entry.filename + ' ' + (entry.relativePath || '')).toLowerCase();
+                if (text.indexOf(searchQuery) === -1) return;
+            }
 
             var li = document.createElement('li');
             li.className = 'track-row' + (!entry ? ' unavailable' : (available ? '' : ' unavailable'));

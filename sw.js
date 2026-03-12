@@ -1,4 +1,4 @@
-const CACHE_NAME = 'audio-manipulator-v32';
+const CACHE_NAME = 'audio-manipulator-v33';
 const ASSETS = [
     './',
     './index.html',
