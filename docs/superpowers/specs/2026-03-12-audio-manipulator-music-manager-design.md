@@ -51,9 +51,9 @@ AudioBufferSourceNode (playbackRate)
 {
     id:           string    // crypto.randomUUID()
     filename:     string    // "song.wav"
-    relativePath: string    // "Rock/song.wav"
+    relativePath: string    // "Rock/song.wav" (empty string if webkitRelativePath unavailable)
     fileSize:     number    // bytes, used for matching
-    duration:     number    // seconds, populated after first decode
+    duration:     number    // seconds, 0 if not yet decoded
     dateAdded:    number    // timestamp when first seen
     lastPlayed:   number    // timestamp, 0 if never played
 }
@@ -75,7 +75,7 @@ AudioBufferSourceNode (playbackRate)
 ```
 {
     trackIds:     string[]  // ordered list of LibraryEntry IDs
-    currentIndex: number    // index of currently playing track
+    currentIndex: number    // index of currently playing track (-1 if empty)
     source:       string    // "library", "playlist:<id>", or "manual"
 }
 ```
@@ -92,7 +92,7 @@ All persistence through localStorage with `am-` prefixed keys:
 - `am-playlists` — Array of Playlist objects
 - `am-settings` — Settings object
 
-Each save is a full overwrite of the key. Even 1000 tracks is well under iOS Safari's ~5MB localStorage limit.
+Each save is a full overwrite of the key. Estimated storage: ~300 bytes per LibraryEntry, ~100 bytes per playlist track reference. 1000 tracks + 10 playlists ≈ ~350 KB, well under iOS Safari's ~5MB limit. All `setItem` calls should be wrapped in try/catch to handle `QuotaExceededError` — on failure, show a brief warning but don't crash.
 
 The queue is not persisted — it's runtime only since audio files aren't available across sessions.
 
@@ -107,13 +107,16 @@ When the user loads a folder, the app receives File objects and matches them to 
 
 ```
 For each .wav file in the loaded folder:
-    1. Exact relativePath match → reconnect
-    2. Filename match → exactly one result → reconnect
-    3. Filename + fileSize match → reconnect
-    4. No match → create new LibraryEntry, add to library
+    1. Exact relativePath match (skip if relativePath is empty) → reconnect
+    2. Filename match → exactly one library entry with that filename → reconnect
+    3. Filename + fileSize match → exactly one library entry matching both → reconnect
+    4. If steps 2-3 produce multiple matches, skip (leave ambiguous entries unmatched)
+    5. No match → create new LibraryEntry, add to library
 
 Unmatched LibraryEntries remain unavailable (no File in fileMap).
 ```
+
+If `webkitRelativePath` is not available (older iOS versions), step 1 is skipped and matching falls through to filename-based steps. The `relativePath` field stores an empty string in this case.
 
 Duration is populated lazily — when a track is first decoded for playback, the duration is written back to the LibraryEntry and saved.
 
@@ -129,9 +132,10 @@ Four tabs: Library | Playlists | Queue | Settings
 
 ### Mini Player Bar (above tab bar, fixed)
 
-- Visible when a track has been played this session
+- Hidden on app launch. Becomes visible once audio playback has successfully started (i.e., AudioContext is running and a source node is playing — not just when a track is queued)
 - Shows: track name, play/pause button, progress bar, current time
 - Tapping the bar (not the play/pause button) opens the full Now Playing view
+- Remains visible after pausing (hides only on app restart or queue clear with nothing playing)
 
 ### Now Playing View (full-screen overlay)
 
@@ -139,28 +143,38 @@ Four tabs: Library | Playlists | Queue | Settings
 - Contains all audio controls: seek bar, transport (prev/restart/play-pause/next), speed/pitch slider with semitone buttons (-12 to +12), 10-band EQ, volume (0-200%)
 - Down-arrow or "Done" button at top to dismiss
 
+### Prev/Restart Transport Button Behavior
+
+- If current playback position is **more than 3 seconds** into the track: restart the current track from the beginning
+- If current playback position is **3 seconds or less** into the track: go to previous track in queue
+- If already at the first track in queue and ≤3 seconds in: restart from beginning
+
 ## Library Tab (`library.js`)
 
-### Layout (top to bottom)
+### Empty State
 
-1. **"Load Folder" button** — prominent when library is empty, smaller button in header after first load
+When the library has no entries, show a centered message: "No tracks yet" with a prominent "Load Folder" button below it. No search, filter, or sort controls shown in empty state.
+
+### Layout (top to bottom, when library has entries)
+
+1. **"Load Folder" button** — smaller button in the top-right header area
 2. **Search bar** — filters track list in real-time, matches against filename and subfolder path, case-insensitive
 3. **Filter button** — next to search bar, opens filter options:
    - Availability: All / Available Only / Unavailable Only
    - Folder: dropdown of subfolder names in the library
    - Filters combine with search
-4. **Sort dropdown** — A-Z, Z-A, Oldest First, Newest First
+4. **Sort dropdown** — A-Z, Z-A, Oldest First, Newest First (stored in Settings as `sortOrder`)
 5. **Track count** — reflects filtered results (e.g., "12 of 47 tracks")
 6. **Scrollable track list** — each row:
    - Track name (filename without .wav extension)
-   - Subfolder path + duration (smaller, grey text)
+   - Subfolder path + duration (smaller, grey text; shows "—" if duration not yet known)
    - "+" button — opens quick playlist picker to add track
-   - "..." button — bottom sheet: Play, Play Next, Add to Queue, Remove from Library
+   - "..." button — bottom sheet: Play Next, Add to Queue, Remove from Library
    - Unavailable tracks: dimmed, no action buttons, "unavailable" label
 
 ### Playing from Library
 
-Replaces the queue with all available library tracks in current sort order, starting from the tapped track. Queue source = "library".
+Tapping a track row plays it: replaces the queue with all available library tracks in current sort order, starting from the tapped track. Queue source = "library". If no tracks are available (folder not loaded), tapping is disabled and a prompt suggests loading a folder.
 
 ## Playlists Tab (`playlists.js`)
 
@@ -169,7 +183,7 @@ Replaces the queue with all available library tracks in current sort order, star
 1. **Header** — "Playlists" title with "+" button
 2. **Playlist rows** — each shows:
    - Playlist name
-   - Track count (e.g., "12 tracks")
+   - Track count (e.g., "12 tracks") — counts only tracks whose IDs still exist in the library; silently skips removed IDs
    - Preview of first 2-3 track names (smaller, grey text)
    - "..." button — Rename, Delete, Play All
 
@@ -183,12 +197,17 @@ Tap "+" → text input appears at top of list → type name → confirm. Starts 
 - Playlist name as header (tappable to rename)
 - "Play All" and "Shuffle" buttons
 - Track list: same row format as Library (name, duration, action buttons)
-- "..." per track: Play, Play Next, Add to Queue, Remove from Playlist
+- "..." per track: Play Next, Add to Queue, Remove from Playlist
 - Drag handle on left of each row to reorder
+- Tracks whose library entries no longer exist are shown dimmed with "removed" label and can be cleaned up via "..." → Remove from Playlist
 
 ### Playing from Playlist
 
-Replaces queue with playlist's available tracks in playlist order. Queue source = "playlist:<id>".
+**"Play All"**: Replaces queue with playlist's available tracks in playlist order, starting from track 1. Queue source = "playlist:\<id\>".
+
+**"Shuffle"**: Replaces queue with playlist's available tracks in a randomized order and begins playback. Queue source = "playlist:\<id\>". The shuffle is a one-time randomization of the queue — it does not set a persistent shuffle mode.
+
+**Tapping a track row**: Replaces queue with playlist's available tracks in playlist order, starting from the tapped track. Queue source = "playlist:\<id\>".
 
 ### Adding Tracks (from Library "+" button)
 
@@ -196,7 +215,11 @@ Quick picker pops up showing playlist names → tap one → track appended. If n
 
 ## Queue Tab (`queue.js`)
 
-### Layout
+### Empty State
+
+When the queue is empty (no tracks have been played this session), show a centered message: "Queue is empty — play a track from Library or a Playlist to start."
+
+### Layout (when queue has tracks)
 
 1. **Header** — "Queue" with source indicator (e.g., "Playing from: Library" or "Playing from: My Playlist")
 2. **Now playing track** — highlighted with blue left border
@@ -204,13 +227,13 @@ Quick picker pops up showing playlist names → tap one → track appended. If n
    - Track name, subfolder, duration
    - "..." button — Remove from Queue
    - Drag handle to reorder
-4. **"Clear Queue" button** — clears everything except currently playing track
+4. **"Clear Queue" button** — clears all tracks after the currently playing one. If nothing is playing, clears the entire queue. Button is hidden when queue is empty.
 
 ### Queue Behavior
 
 - Playing from Library → queue = all available library tracks in sort order
 - Playing from Playlist → queue = playlist's available tracks in playlist order
-- "Play Next" → inserts at position 2 (after current track)
+- "Play Next" → inserts at position after current track (position 2 if something is playing)
 - "Add to Queue" → appends to end
 - Drag reorder updates queue immediately
 - Autoplay setting controls auto-advance within the queue; when queue ends, playback stops
@@ -234,13 +257,13 @@ Quick picker pops up showing playlist names → tap one → track appended. If n
 ### Library
 
 - "Load Folder" button (secondary access)
-- "Clear Library" button (with confirmation prompt)
+- "Clear Library" button — with confirmation prompt. Clears all library entries and the runtime file map. Playlists are preserved but their track references become orphaned (shown as "removed" in playlist view, can be cleaned up individually).
 - Library stats: total tracks, available tracks, storage used
 
 ### Reset
 
 - "Reset to Defaults" — resets settings only, preserves library/playlists
-- "Reset Everything" — clears settings, library, playlists (with confirmation)
+- "Reset Everything" — clears settings, library, and playlists (with confirmation)
 
 ## Settings Object
 
@@ -256,6 +279,8 @@ Quick picker pops up showing playlist names → tap one → track appended. If n
 }
 ```
 
+`sortOrder` is stored in Settings for persistence across sessions but is controlled from the Library tab's sort dropdown — it does not appear in the Settings tab UI.
+
 ## UI Design
 
 - **Style:** Dark, minimal, utilitarian (unchanged)
@@ -266,11 +291,11 @@ Quick picker pops up showing playlist names → tap one → track appended. If n
 
 ## Constraints
 
-- PWA on iOS Safari — no persistent file access, files reconnected each session via folder load
+- PWA on iOS Safari 15.4+ — no persistent file access, files reconnected each session via folder load
+- `webkitdirectory` for folder selection (includes subfolders); `webkitRelativePath` may be empty on older iOS — matching falls back to filename-based steps
 - No Mac available — native conversion planned for later
-- localStorage ~5MB limit on iOS Safari
+- localStorage ~5MB limit on iOS Safari; all writes wrapped in try/catch for QuotaExceededError
 - No external dependencies or build tools
-- `webkitdirectory` for folder selection (includes subfolders)
 
 ## Future Expansion (out of scope)
 
