@@ -1161,6 +1161,94 @@
         }
     });
 
+    // --- Playback Presets ---
+    var presetSaveBtn = document.getElementById('presetSaveBtn');
+    var presetsListEl = document.getElementById('presetsList');
+
+    function capturePreset() {
+        return {
+            rate: parseInt(rateSlider.value),
+            volume: parseFloat(volumeSlider.value),
+            eqBands: settings.eqBands.slice(),
+            panValue: settings.panValue || 0,
+            stereoWidth: settings.stereoWidth || 1.0,
+            lpFilter: parseInt(lpFilterSlider.value),
+            hpFilter: parseInt(hpFilterSlider.value)
+        };
+    }
+
+    function applyPreset(p) {
+        // Speed
+        rateSlider.value = p.rate;
+        rateSlider.dispatchEvent(new Event('input'));
+        // Volume
+        volumeSlider.value = p.volume;
+        volumeSlider.dispatchEvent(new Event('input'));
+        // EQ
+        applyEqPreset(p.eqBands);
+        // Pan
+        panSlider.value = Math.round(p.panValue * 100);
+        panSlider.dispatchEvent(new Event('input'));
+        // Stereo width
+        stereoWidthSlider.value = Math.round(p.stereoWidth * 100);
+        stereoWidthSlider.dispatchEvent(new Event('input'));
+        // LP/HP
+        lpFilterSlider.value = p.lpFilter;
+        lpFilterSlider.dispatchEvent(new Event('input'));
+        hpFilterSlider.value = p.hpFilter;
+        hpFilterSlider.dispatchEvent(new Event('input'));
+
+        AM.showToast('Preset applied');
+    }
+
+    function renderPresets() {
+        var presets = AM.storage.getPlaybackPresets();
+        presetsListEl.innerHTML = '';
+        presets.forEach(function (p, idx) {
+            var chip = document.createElement('div');
+            chip.className = 'preset-chip';
+
+            var nameSpan = document.createElement('span');
+            nameSpan.textContent = p.name;
+            chip.appendChild(nameSpan);
+
+            var delBtn = document.createElement('span');
+            delBtn.className = 'preset-delete';
+            delBtn.textContent = '\u2716';
+            delBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var all = AM.storage.getPlaybackPresets();
+                all.splice(idx, 1);
+                AM.storage.savePlaybackPresets(all);
+                renderPresets();
+                AM.showToast('Preset deleted');
+            });
+            chip.appendChild(delBtn);
+
+            chip.addEventListener('click', function () {
+                applyPreset(p.data);
+            });
+
+            presetsListEl.appendChild(chip);
+        });
+    }
+
+    presetSaveBtn.addEventListener('click', function () {
+        var name = prompt('Preset name:');
+        if (!name || !name.trim()) return;
+        var presets = AM.storage.getPlaybackPresets();
+        presets.push({
+            id: crypto.randomUUID(),
+            name: name.trim(),
+            data: capturePreset()
+        });
+        AM.storage.savePlaybackPresets(presets);
+        renderPresets();
+        AM.showToast('Preset saved: ' + name.trim());
+    });
+
+    renderPresets();
+
     // --- Public API ---
     AM.player = {
         loadTrack: loadTrack,
