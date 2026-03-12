@@ -42,6 +42,8 @@
     var abLoopA = -1;            // A/B loop point A (seconds)
     var abLoopB = -1;            // A/B loop point B (seconds)
     var abLoopState = 0;         // 0=off, 1=A set, 2=looping
+    var isNormalized = false;
+    var preNormalizeVolume = 0;
 
     // Current track metadata (from library entry)
     var currentTrackId = null;
@@ -62,6 +64,7 @@
     var reverseBtn = document.getElementById('reverseBtn');
     var abLoopBtn = document.getElementById('abLoopBtn');
     var abLoopLabel = document.getElementById('abLoopLabel');
+    var normalizeBtn = document.getElementById('normalizeBtn');
     var rateSlider = document.getElementById('rateSlider');
     var rateValue = document.getElementById('rateValue');
     var volumeSlider = document.getElementById('volumeSlider');
@@ -555,6 +558,9 @@
         originalBuffer = null;
         isReversed = false;
         reverseBtn.classList.remove('active');
+        isNormalized = false;
+        preNormalizeVolume = 0;
+        normalizeBtn.classList.remove('active');
         clearAbLoop();
         playBtn.disabled = true;
         seekSlider.disabled = true;
@@ -872,6 +878,57 @@
             // Clear loop
             clearAbLoop();
         }
+    });
+
+    // --- Audio Normalization ---
+    normalizeBtn.addEventListener('click', function () {
+        if (!audioBuffer) return;
+        if (AM.haptic) AM.haptic();
+
+        if (isNormalized) {
+            // Restore original volume
+            volumeSlider.value = preNormalizeVolume;
+            volumeValue.textContent = Math.round(preNormalizeVolume * 100) + '%';
+            if (gainNode) gainNode.gain.value = preNormalizeVolume;
+            isNormalized = false;
+            normalizeBtn.classList.remove('active');
+            updateBoostWarning();
+            AM.showToast('Normalization off');
+            return;
+        }
+
+        // Scan all channels for peak amplitude
+        var peak = 0;
+        for (var ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
+            var data = audioBuffer.getChannelData(ch);
+            for (var i = 0; i < data.length; i++) {
+                var abs = Math.abs(data[i]);
+                if (abs > peak) peak = abs;
+            }
+        }
+
+        if (peak === 0) {
+            AM.showToast('Silent track — cannot normalize');
+            return;
+        }
+
+        // Compute gain to bring peak to 0 dBFS
+        var normalizeGain = 1.0 / peak;
+
+        // Save current volume, apply normalized volume
+        preNormalizeVolume = parseFloat(volumeSlider.value);
+        var newVol = Math.min(preNormalizeVolume * normalizeGain, 3.0); // cap at 300%
+
+        volumeSlider.value = newVol;
+        volumeValue.textContent = Math.round(newVol * 100) + '%';
+        if (gainNode) gainNode.gain.value = newVol;
+
+        isNormalized = true;
+        normalizeBtn.classList.add('active');
+        updateBoostWarning();
+
+        var peakDb = (20 * Math.log10(peak)).toFixed(1);
+        AM.showToast('Normalized (peak: ' + peakDb + ' dB)');
     });
 
     reverseBtn.addEventListener('click', function () {
