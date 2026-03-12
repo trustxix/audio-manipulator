@@ -10,6 +10,9 @@
     var trackIds = [];
     var currentIndex = -1;
     var source = ''; // "library", "playlist:<id>", or "manual"
+    var isShuffled = false;
+    var unshuffledIds = []; // original order before shuffle
+    var unshuffledIndex = -1;
 
     // --- DOM refs ---
     var queueSource = document.getElementById('queueSource');
@@ -341,6 +344,58 @@
         });
     }
 
+    // --- Shuffle ---
+    var shuffleBtn = document.getElementById('shuffleBtn');
+
+    function shuffleQueue() {
+        if (trackIds.length <= 1) return;
+
+        if (!isShuffled) {
+            // Save original order
+            unshuffledIds = trackIds.slice();
+            unshuffledIndex = currentIndex;
+
+            // Fisher-Yates shuffle everything after current
+            var currentId = trackIds[currentIndex];
+            var after = trackIds.slice(currentIndex + 1);
+            for (var i = after.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                var tmp = after[i];
+                after[i] = after[j];
+                after[j] = tmp;
+            }
+            trackIds = trackIds.slice(0, currentIndex + 1).concat(after);
+            isShuffled = true;
+        } else {
+            // Restore original order, find current track's position in it
+            var nowId = trackIds[currentIndex];
+            trackIds = unshuffledIds.slice();
+            currentIndex = trackIds.indexOf(nowId);
+            if (currentIndex === -1) currentIndex = 0;
+            isShuffled = false;
+            unshuffledIds = [];
+        }
+
+        shuffleBtn.classList.toggle('active', isShuffled);
+        player.updateNavButtons();
+        renderQueue();
+    }
+
+    shuffleBtn.addEventListener('click', function () {
+        if (AM.haptic) AM.haptic();
+        shuffleQueue();
+        AM.showToast(isShuffled ? 'Queue shuffled' : 'Queue unshuffled');
+    });
+
+    // Reset shuffle state when setting a new queue
+    var origSetQueue = setQueue;
+    setQueue = function (ids, startIndex, queueSource) {
+        isShuffled = false;
+        unshuffledIds = [];
+        shuffleBtn.classList.remove('active');
+        origSetQueue(ids, startIndex, queueSource);
+    };
+
     // --- Public API ---
     AM.queue = {
         setQueue: setQueue,
@@ -356,6 +411,8 @@
         getTrackIds: function () { return trackIds; },
         getCurrentIndex: function () { return currentIndex; },
         getSource: function () { return source; },
+        isShuffled: function () { return isShuffled; },
+        shuffle: shuffleQueue,
         refresh: renderQueue
     };
 })();
