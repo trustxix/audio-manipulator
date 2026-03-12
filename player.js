@@ -167,29 +167,67 @@
     // the "playback" session category — making audio work like a real music app
     // (plays through the mute switch, shows in Control Center, etc.).
     var audioUnlocked = false;
+
+    // Build a valid silent WAV file in memory (1 second, 8kHz, 16-bit mono).
+    // Must have real sample data — iOS ignores empty/malformed audio.
+    function createSilentWavBlob() {
+        var sampleRate = 8000;
+        var numSamples = sampleRate; // 1 second of silence
+        var dataSize = numSamples * 2; // 16-bit = 2 bytes per sample
+        var buffer = new ArrayBuffer(44 + dataSize);
+        var v = new DataView(buffer);
+
+        function writeStr(offset, str) {
+            for (var i = 0; i < str.length; i++) {
+                v.setUint8(offset + i, str.charCodeAt(i));
+            }
+        }
+
+        writeStr(0, 'RIFF');
+        v.setUint32(4, 36 + dataSize, true);
+        writeStr(8, 'WAVE');
+        writeStr(12, 'fmt ');
+        v.setUint32(16, 16, true);       // fmt chunk size
+        v.setUint16(20, 1, true);        // PCM format
+        v.setUint16(22, 1, true);        // mono
+        v.setUint32(24, sampleRate, true);
+        v.setUint32(28, sampleRate * 2, true); // byte rate
+        v.setUint16(32, 2, true);        // block align
+        v.setUint16(34, 16, true);       // bits per sample
+        writeStr(36, 'data');
+        v.setUint32(40, dataSize, true);
+        // Sample data is already all zeros (silence) from ArrayBuffer init
+
+        return new Blob([buffer], { type: 'audio/wav' });
+    }
+
     function warmUpAudioContext() {
         if (audioUnlocked) return;
         audioUnlocked = true;
 
         ensureAudioContext();
 
-        // Force iOS into "playback" audio session via a silent <audio> element.
-        // This tiny base64 WAV is 44 bytes of silence — just enough to switch
-        // the audio category so Web Audio API output reaches the speakers even
-        // when the mute switch is on.
+        // Force iOS into "playback" audio session by playing a real (silent)
+        // WAV through a standard <audio> element. This switches the session
+        // category from "ambient" (muted by hardware switch) to "playback"
+        // (plays like a music app, ignores mute switch).
         try {
-            var silentWav = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
-            var unlock = new Audio(silentWav);
+            var blob = createSilentWavBlob();
+            var url = URL.createObjectURL(blob);
+            var unlock = new Audio(url);
             unlock.setAttribute('playsinline', '');
-            unlock.volume = 0.01;
             unlock.play().then(function () {
-                unlock.pause();
-                unlock.remove();
+                // Let it play briefly, then clean up
+                setTimeout(function () {
+                    unlock.pause();
+                    unlock.remove();
+                    URL.revokeObjectURL(url);
+                }, 200);
             }).catch(function () {
-                // Ignore — not all browsers need this
+                URL.revokeObjectURL(url);
             });
         } catch (e) {
-            // Fallback: not critical, just means mute switch may silence audio
+            // Non-critical — mute switch may silence audio on older iOS
         }
 
         document.removeEventListener('touchstart', warmUpAudioContext, true);
