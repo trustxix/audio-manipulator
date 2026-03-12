@@ -44,8 +44,14 @@
     var abLoopState = 0;         // 0=off, 1=A set, 2=looping
     var isNormalized = false;
     var preNormalizeVolume = 0;
+    var bitcrusherNode = null;     // ScriptProcessorNode for bitcrusher
+    var bitcrusherBits = 16;       // 2-16
+    var bitcrusherCrush = 1;       // 1-40 (sample hold factor)
     var distortionNode = null;     // WaveShaperNode for distortion/saturation
     var distortionDrive = 0;       // 0 = off, 1-100 = drive amount
+    var ringModGain = null;        // GainNode modulated by carrier oscillator
+    var ringModOsc = null;         // OscillatorNode carrier for ring modulation
+    var ringModFreq = 0;           // 0 = off, 1-2000 Hz
     var fadeGainNode = null;       // GainNode for fade in/out (separate from user volume)
     var lpFilterNode = null;       // BiquadFilterNode lowpass
     var hpFilterNode = null;       // BiquadFilterNode highpass
@@ -55,6 +61,25 @@
     var analyserData = null;      // Float32Array for time-domain data
     var clipIndicatorEl = null;
     var clipHoldTimer = null;
+    var loudnessValueEl = null;
+    var loudnessBarEl = null;
+    var chorusDelay = null;        // DelayNode for chorus/flanger
+    var chorusLfo = null;          // OscillatorNode LFO
+    var chorusLfoGain = null;      // GainNode controlling LFO depth
+    var chorusWet = null;          // GainNode for wet mix
+    var chorusActive = false;      // whether chorus is enabled
+    var delayNode = null;          // DelayNode for echo effect
+    var delayFeedback = null;      // GainNode for feedback
+    var delayWet = null;           // GainNode for wet signal
+    var delayTime = 0;             // 0 = off, >0 = delay in seconds
+    var delayFeedbackVal = 0.4;    // 0-0.9
+    var crossfadeTriggered = false; // prevents re-triggering during same track
+
+    // Preloaded next track for gapless playback
+    var preloadedBuffer = null;
+    var preloadedTrackId = null;
+    var preloadedTrackName = '';
+    var preloadedTrackSub = '';
 
     // Current track metadata (from library entry)
     var currentTrackId = null;
@@ -82,6 +107,16 @@
     var volumeValue = document.getElementById('volumeValue');
     var volumeGroup = document.getElementById('volumeGroup');
     var seekSlider = document.getElementById('seekSlider');
+    var waveformCanvas = document.getElementById('waveformCanvas');
+    var waveformCtx = waveformCanvas ? waveformCanvas.getContext('2d') : null;
+    var waveformProgress = document.getElementById('waveformProgress');
+    var spectrumCanvas = document.getElementById('spectrumCanvas');
+    var spectrumCtx = spectrumCanvas ? spectrumCanvas.getContext('2d') : null;
+    var spectrumSection = document.getElementById('spectrumSection');
+    var spectrumToggleBtn = document.getElementById('spectrumToggle');
+    var spectrumModeSelect = document.getElementById('spectrumMode');
+    var spectrumVisible = true;
+    var spectrumFreqData = null; // Uint8Array for frequency data
     var currentTimeEl = document.getElementById('currentTime');
     var totalTimeEl = document.getElementById('totalTime');
     var semitoneUp = document.getElementById('semitoneUp');
@@ -95,6 +130,10 @@
     var panValueEl = document.getElementById('panValue');
     var stereoWidthSlider = document.getElementById('stereoWidthSlider');
     var stereoWidthValueEl = document.getElementById('stereoWidthValue');
+    var bitcrusherBitsSlider = document.getElementById('bitcrusherBits');
+    var bitcrusherBitsValue = document.getElementById('bitcrusherBitsValue');
+    var bitcrusherCrushSlider = document.getElementById('bitcrusherCrush');
+    var bitcrusherCrushValue = document.getElementById('bitcrusherCrushValue');
     var distortionSlider = document.getElementById('distortionSlider');
     var distortionValueEl = document.getElementById('distortionValue');
     var lpFilterSlider = document.getElementById('lpFilterSlider');
@@ -109,10 +148,29 @@
     var miniPlayerPlayBtn = document.getElementById('miniPlayerPlayBtn');
     var miniPlayerPlayIcon = document.getElementById('miniPlayerPlayIcon');
     var miniPlayerProgress = document.getElementById('miniPlayerProgress');
+    var miniWaveformCanvas = document.getElementById('miniWaveformCanvas');
+    var miniWaveformCtx = miniWaveformCanvas ? miniWaveformCanvas.getContext('2d') : null;
 
     // Now Playing DOM
     var npTrackName = document.getElementById('npTrackName');
     var npTrackSub = document.getElementById('npTrackSub');
+    var npAlbumArt = document.getElementById('npAlbumArt');
+    var currentArtworkUrl = null; // Object URL for current album art
+
+    // Floating strip DOM
+    var floatingStrip = document.getElementById('floatingStrip');
+    var floatingPlayBtn = document.getElementById('floatingPlayBtn');
+    var floatingTime = document.getElementById('floatingTime');
+    var floatingStripFill = document.getElementById('floatingStripFill');
+    var floatingTrack = document.getElementById('floatingTrack');
+    var npOverlayEl = document.getElementById('nowPlayingOverlay');
+
+    // --- Cached accent color (avoid getComputedStyle in rAF loop) ---
+    var cachedAccent = '#0a84ff';
+    function refreshAccentColor() {
+        cachedAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#0a84ff';
+    }
+    refreshAccentColor();
 
     // --- Build EQ sliders ---
     var eqSliderEls = [];
@@ -186,6 +244,52 @@
 
     updateFreqLabelColors();
 
+    // --- Parametric EQ (Q sliders) ---
+    var eqParametricBtn = document.getElementById('eqParametricBtn');
+    var eqQRow = document.getElementById('eqQRow');
+    var eqQSlidersContainer = document.getElementById('eqQSliders');
+    var eqQSliderEls = [];
+
+    // Initialize Q values from settings
+    if (!settings.eqQ || settings.eqQ.length !== 10) {
+        settings.eqQ = [0, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 0];
+    }
+
+    EQ_FREQUENCIES.forEach(function (freq, i) {
+        var qSlider = document.createElement('input');
+        qSlider.type = 'range';
+        qSlider.min = '0.25';
+        qSlider.max = '12';
+        qSlider.step = '0.25';
+        qSlider.value = settings.eqQ[i] || 1.4;
+        // Shelving bands (first/last) don't use Q the same way but still allow adjustment
+        qSlider.addEventListener('input', function () {
+            var val = parseFloat(qSlider.value);
+            settings.eqQ[i] = val;
+            if (eqFilters[i]) {
+                eqFilters[i].Q.value = val;
+            }
+            AM.storage.saveSettings(settings);
+        });
+        eqQSlidersContainer.appendChild(qSlider);
+        eqQSliderEls.push(qSlider);
+    });
+
+    function applyParametricMode(enabled) {
+        settings.eqParametric = enabled;
+        eqQRow.style.display = enabled ? 'flex' : 'none';
+        eqParametricBtn.classList.toggle('eq-parametric-active', enabled);
+    }
+
+    applyParametricMode(settings.eqParametric);
+
+    eqParametricBtn.addEventListener('click', function (e) {
+        if (e.target.classList.contains('info-btn')) return; // don't toggle on info button
+        settings.eqParametric = !settings.eqParametric;
+        AM.storage.saveSettings(settings);
+        applyParametricMode(settings.eqParametric);
+    });
+
     // --- EQ bypass ---
     eqGroup.classList.toggle('eq-bypassed', !settings.eqEnabled);
 
@@ -204,10 +308,11 @@
                     filter.type = 'highshelf';
                 } else {
                     filter.type = 'peaking';
-                    filter.Q.value = 1.4;
                 }
                 filter.frequency.value = freq;
                 filter.gain.value = settings.eqBands[i];
+                var qVal = settings.eqQ && settings.eqQ[i] !== undefined ? settings.eqQ[i] : 1.4;
+                filter.Q.value = qVal;
                 eqFilters.push(filter);
             });
 
@@ -224,6 +329,45 @@
 
             // Mono downmix node — forces output to 1 channel
             monoNode = audioCtx.createChannelMerger(1);
+
+            // Bitcrusher — created lazily in ensureBitcrusher()
+
+            // Ring modulator — a GainNode whose gain is driven by an OscillatorNode
+            ringModGain = audioCtx.createGain();
+            ringModGain.gain.value = 0; // silent until activated
+            ringModOsc = audioCtx.createOscillator();
+            ringModOsc.type = 'sine';
+            ringModOsc.frequency.value = 440;
+            ringModOsc.connect(ringModGain.gain);
+            ringModOsc.start();
+
+            // Delay / echo
+            delayNode = audioCtx.createDelay(2.0);
+            delayNode.delayTime.value = 0.3;
+            delayFeedback = audioCtx.createGain();
+            delayFeedback.gain.value = 0.4;
+            delayWet = audioCtx.createGain();
+            delayWet.gain.value = 0.5;
+            // Feedback loop: delay → feedback → delay
+            delayNode.connect(delayFeedback);
+            delayFeedback.connect(delayNode);
+            // Wet output: delay → wet gain → (will be connected to chain)
+            delayNode.connect(delayWet);
+
+            // Chorus/Flanger — modulated delay
+            chorusDelay = audioCtx.createDelay(0.1);
+            chorusDelay.delayTime.value = 0.015;
+            chorusLfo = audioCtx.createOscillator();
+            chorusLfo.type = 'sine';
+            chorusLfo.frequency.value = 1.5;
+            chorusLfoGain = audioCtx.createGain();
+            chorusLfoGain.gain.value = 0.005; // depth in seconds
+            chorusLfo.connect(chorusLfoGain);
+            chorusLfoGain.connect(chorusDelay.delayTime);
+            chorusLfo.start();
+            chorusWet = audioCtx.createGain();
+            chorusWet.gain.value = 0.5;
+            chorusDelay.connect(chorusWet);
 
             // Distortion / saturation
             distortionNode = audioCtx.createWaveShaper();
@@ -244,34 +388,29 @@
             hpFilterNode.frequency.value = 20;
             hpFilterNode.Q.value = 0.707;
 
-            // Stereo width processor (Mid/Side)
-            stereoWidthNode = audioCtx.createScriptProcessor(4096, 2, 2);
-            stereoWidthNode.onaudioprocess = function (e) {
-                var inputL = e.inputBuffer.getChannelData(0);
-                var inputR = e.inputBuffer.getChannelData(1);
-                var outputL = e.outputBuffer.getChannelData(0);
-                var outputR = e.outputBuffer.getChannelData(1);
-                var w = stereoWidthValue;
-                for (var s = 0; s < inputL.length; s++) {
-                    var mid = (inputL[s] + inputR[s]) * 0.5;
-                    var side = (inputL[s] - inputR[s]) * 0.5;
-                    outputL[s] = mid + side * w;
-                    outputR[s] = mid - side * w;
-                }
-            };
+            // Stereo width — created lazily in ensureStereoWidth()
 
-            // Analyser for clipping detection
+            // Analyser for clipping detection + spectrum
             analyserNode = audioCtx.createAnalyser();
             analyserNode.fftSize = 2048;
+            analyserNode.smoothingTimeConstant = 0.8;
             analyserData = new Float32Array(analyserNode.fftSize);
+            spectrumFreqData = new Uint8Array(analyserNode.frequencyBinCount);
             clipIndicatorEl = document.getElementById('clipIndicator');
 
-            // Route all audio through an <audio> element via MediaStreamDestination.
-            // This forces iOS into "playback" audio session — bypasses mute switch.
-            mediaStreamDest = audioCtx.createMediaStreamDestination();
-            outputAudioEl = new Audio();
-            outputAudioEl.setAttribute('playsinline', '');
-            outputAudioEl.srcObject = mediaStreamDest.stream;
+            // Loudness meter
+            loudnessValueEl = document.getElementById('loudnessValue');
+            loudnessBarEl = document.getElementById('loudnessBar');
+
+            // MediaStreamDest bypass for iOS mute switch (opt-in, can cause crackling)
+            // On modern iOS (14+), AudioContext from user gesture already bypasses mute.
+            // Only create the bypass if the setting is enabled.
+            if (settings.muteBypass) {
+                mediaStreamDest = audioCtx.createMediaStreamDestination();
+                outputAudioEl = new Audio();
+                outputAudioEl.setAttribute('playsinline', '');
+                outputAudioEl.srcObject = mediaStreamDest.stream;
+            }
 
             updateAudioChain();
         }
@@ -304,6 +443,48 @@
     document.addEventListener('touchstart', warmUpAudioContext, true);
     document.addEventListener('click', warmUpAudioContext, true);
 
+    function ensureBitcrusher() {
+        if (bitcrusherNode || !audioCtx) return;
+        bitcrusherNode = audioCtx.createScriptProcessor(4096, 2, 2);
+        var bcLastL = 0, bcLastR = 0, bcCount = 0;
+        bitcrusherNode.onaudioprocess = function (e) {
+            var inL = e.inputBuffer.getChannelData(0);
+            var inR = e.inputBuffer.getChannelData(1);
+            var outL = e.outputBuffer.getChannelData(0);
+            var outR = e.outputBuffer.getChannelData(1);
+            var steps = Math.pow(2, bitcrusherBits);
+            var crush = bitcrusherCrush;
+            for (var i = 0; i < inL.length; i++) {
+                bcCount++;
+                if (bcCount >= crush) {
+                    bcCount = 0;
+                    bcLastL = Math.round(inL[i] * steps) / steps;
+                    bcLastR = Math.round(inR[i] * steps) / steps;
+                }
+                outL[i] = bcLastL;
+                outR[i] = bcLastR;
+            }
+        };
+    }
+
+    function ensureStereoWidth() {
+        if (stereoWidthNode || !audioCtx) return;
+        stereoWidthNode = audioCtx.createScriptProcessor(4096, 2, 2);
+        stereoWidthNode.onaudioprocess = function (e) {
+            var inputL = e.inputBuffer.getChannelData(0);
+            var inputR = e.inputBuffer.getChannelData(1);
+            var outputL = e.outputBuffer.getChannelData(0);
+            var outputR = e.outputBuffer.getChannelData(1);
+            var w = stereoWidthValue;
+            for (var s = 0; s < inputL.length; s++) {
+                var mid = (inputL[s] + inputR[s]) * 0.5;
+                var side = (inputL[s] - inputR[s]) * 0.5;
+                outputL[s] = mid + side * w;
+                outputR[s] = mid - side * w;
+            }
+        };
+    }
+
     function updateAudioChain() {
         if (!gainNode || !audioCtx) return;
 
@@ -312,6 +493,12 @@
         if (pannerNode) pannerNode.disconnect();
         eqFilters.forEach(function (f) { f.disconnect(); });
         if (distortionNode) distortionNode.disconnect();
+        if (bitcrusherNode) bitcrusherNode.disconnect();
+        if (ringModGain) ringModGain.disconnect();
+        if (delayNode) { delayNode.disconnect(); delayNode.connect(delayFeedback); delayNode.connect(delayWet); }
+        if (delayWet) delayWet.disconnect();
+        if (chorusDelay) { chorusDelay.disconnect(); chorusDelay.connect(chorusWet); }
+        if (chorusWet) chorusWet.disconnect();
         if (lpFilterNode) lpFilterNode.disconnect();
         if (hpFilterNode) hpFilterNode.disconnect();
         if (limiterNode) limiterNode.disconnect();
@@ -350,6 +537,21 @@
             lastNode = distortionNode;
         }
 
+        // Bitcrusher (only when bits < 16 or crush > 1)
+        if (bitcrusherBits < 16 || bitcrusherCrush > 1) {
+            ensureBitcrusher();
+            if (bitcrusherNode) {
+                lastNode.connect(bitcrusherNode);
+                lastNode = bitcrusherNode;
+            }
+        }
+
+        // Ring modulator (only when freq > 0)
+        if (ringModGain && ringModFreq > 0) {
+            lastNode.connect(ringModGain);
+            lastNode = ringModGain;
+        }
+
         // LP/HP sweep filters (only when active)
         if (lpFilterNode && lpFilterNode.frequency.value < 19999) {
             lastNode.connect(lpFilterNode);
@@ -367,9 +569,24 @@
         }
 
         // Stereo width (only when not 100% / 1.0)
-        if (stereoWidthNode && stereoWidthValue !== 1.0) {
-            lastNode.connect(stereoWidthNode);
-            lastNode = stereoWidthNode;
+        if (stereoWidthValue !== 1.0) {
+            ensureStereoWidth();
+            if (stereoWidthNode) {
+                lastNode.connect(stereoWidthNode);
+                lastNode = stereoWidthNode;
+            }
+        }
+
+        // Delay send (parallel wet path to destination)
+        if (delayNode && delayWet && delayTime > 0) {
+            lastNode.connect(delayNode);
+            delayWet.connect(destination);
+        }
+
+        // Chorus/Flanger send (parallel wet path)
+        if (chorusDelay && chorusWet && chorusActive) {
+            lastNode.connect(chorusDelay);
+            chorusWet.connect(destination);
         }
 
         if (settings.monoEnabled && monoNode) {
@@ -397,6 +614,146 @@
 
     updateBoostWarning();
 
+    // --- Waveform ---
+    function drawWaveform(buffer) {
+        if (!waveformCanvas || !waveformCtx) return;
+        var wrap = waveformCanvas.parentElement;
+        var dpr = window.devicePixelRatio || 1;
+        var w = wrap.clientWidth;
+        var h = wrap.clientHeight;
+        waveformCanvas.width = w * dpr;
+        waveformCanvas.height = h * dpr;
+        waveformCtx.scale(dpr, dpr);
+
+        // Mix channels down to mono peaks
+        var numBars = Math.floor(w / 2); // ~2px per bar with 1px gap
+        var ch0 = buffer.getChannelData(0);
+        var ch1 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : ch0;
+        var samplesPerBar = Math.floor(ch0.length / numBars);
+        var peaks = new Float32Array(numBars);
+        var maxPeak = 0;
+
+        for (var i = 0; i < numBars; i++) {
+            var start = i * samplesPerBar;
+            var end = start + samplesPerBar;
+            var peak = 0;
+            for (var j = start; j < end && j < ch0.length; j++) {
+                var val = (Math.abs(ch0[j]) + Math.abs(ch1[j])) * 0.5;
+                if (val > peak) peak = val;
+            }
+            peaks[i] = peak;
+            if (peak > maxPeak) maxPeak = peak;
+        }
+
+        // Normalize
+        if (maxPeak > 0) {
+            for (var i = 0; i < numBars; i++) peaks[i] /= maxPeak;
+        }
+
+        // Draw bars
+        var accent = cachedAccent;
+        waveformCtx.clearRect(0, 0, w, h);
+        var barWidth = 1.5;
+        var gap = (w / numBars) - barWidth;
+        if (gap < 0.5) gap = 0.5;
+        var step = barWidth + gap;
+        var midY = h / 2;
+
+        for (var i = 0; i < numBars; i++) {
+            var barH = Math.max(1, peaks[i] * midY * 0.9);
+            var x = i * step;
+            waveformCtx.fillStyle = accent;
+            waveformCtx.globalAlpha = 0.5;
+            waveformCtx.fillRect(x, midY - barH, barWidth, barH * 2);
+        }
+        waveformCtx.globalAlpha = 1.0;
+
+        // Draw cue markers
+        if (currentTrackId && buffer.duration > 0) {
+            var trackCues = (AM.storage.getCues()[currentTrackId]) || [];
+            trackCues.forEach(function (cue) {
+                var cx = (cue.time / buffer.duration) * w;
+                waveformCtx.fillStyle = '#ff9f0a';
+                waveformCtx.globalAlpha = 0.9;
+                waveformCtx.fillRect(cx - 0.5, 0, 1.5, h);
+                // Small triangle marker at top
+                waveformCtx.beginPath();
+                waveformCtx.moveTo(cx - 3, 0);
+                waveformCtx.lineTo(cx + 3, 0);
+                waveformCtx.lineTo(cx, 5);
+                waveformCtx.closePath();
+                waveformCtx.fill();
+            });
+
+            // A/B loop markers
+            if (abLoopA >= 0) {
+                var ax = (abLoopA / buffer.duration) * w;
+                waveformCtx.fillStyle = '#30d158';
+                waveformCtx.globalAlpha = 0.9;
+                waveformCtx.fillRect(ax - 0.5, 0, 1.5, h);
+            }
+            if (abLoopB >= 0) {
+                var bx = (abLoopB / buffer.duration) * w;
+                waveformCtx.fillStyle = '#ff453a';
+                waveformCtx.globalAlpha = 0.9;
+                waveformCtx.fillRect(bx - 0.5, 0, 1.5, h);
+                // Shade the loop region
+                if (abLoopA >= 0) {
+                    var ax2 = (abLoopA / buffer.duration) * w;
+                    waveformCtx.fillStyle = '#30d158';
+                    waveformCtx.globalAlpha = 0.08;
+                    waveformCtx.fillRect(ax2, 0, bx - ax2, h);
+                }
+            }
+            waveformCtx.globalAlpha = 1.0;
+        }
+    }
+
+    function drawMiniWaveform(buffer) {
+        if (!miniWaveformCanvas || !miniWaveformCtx) return;
+        var dpr = window.devicePixelRatio || 1;
+        var w = 80;
+        var h = 24;
+        miniWaveformCanvas.width = w * dpr;
+        miniWaveformCanvas.height = h * dpr;
+        miniWaveformCtx.scale(dpr, dpr);
+
+        var numBars = 40;
+        var ch0 = buffer.getChannelData(0);
+        var samplesPerBar = Math.floor(ch0.length / numBars);
+        var peaks = new Float32Array(numBars);
+        var maxPeak = 0;
+
+        for (var i = 0; i < numBars; i++) {
+            var start = i * samplesPerBar;
+            var end = start + samplesPerBar;
+            var peak = 0;
+            for (var j = start; j < end && j < ch0.length; j++) {
+                var val = Math.abs(ch0[j]);
+                if (val > peak) peak = val;
+            }
+            peaks[i] = peak;
+            if (peak > maxPeak) maxPeak = peak;
+        }
+
+        if (maxPeak > 0) {
+            for (var i = 0; i < numBars; i++) peaks[i] /= maxPeak;
+        }
+
+        miniWaveformCtx.clearRect(0, 0, w, h);
+        var accent = cachedAccent;
+        var barW = 1;
+        var gap = (w / numBars) - barW;
+        var step = barW + gap;
+        var midY = h / 2;
+
+        for (var i = 0; i < numBars; i++) {
+            var barH = Math.max(0.5, peaks[i] * midY * 0.85);
+            miniWaveformCtx.fillStyle = accent;
+            miniWaveformCtx.fillRect(i * step, midY - barH, barW, barH * 2);
+        }
+    }
+
     // --- Seek UI ---
     function getCurrentBufferPosition() {
         if (!isPlaying) return bufferOffset;
@@ -405,26 +762,59 @@
         return audioBuffer ? Math.min(pos, audioBuffer.duration) : pos;
     }
 
+    // Frame counter for throttling expensive operations
+    var uiFrameCount = 0;
+
     function updateSeekUI() {
         if (!audioBuffer) return;
+        uiFrameCount++;
         var pos = getCurrentBufferPosition();
+        var pctDone = pos / audioBuffer.duration;
+
+        // --- Lightweight updates (every frame) ---
         currentTimeEl.textContent = formatTime(pos);
         if (!isSeeking) {
-            seekSlider.value = Math.round((pos / audioBuffer.duration) * 1000);
+            seekSlider.value = Math.round(pctDone * 1000);
         }
-        // Update mini player
+        if (waveformProgress) {
+            waveformProgress.style.width = (pctDone * 100) + '%';
+        }
         miniPlayerTime.textContent = formatTime(pos);
-        miniPlayerProgress.style.width = ((pos / audioBuffer.duration) * 100) + '%';
+        miniPlayerProgress.style.width = (pctDone * 100) + '%';
 
-        // Update lock screen progress bar
-        if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
-            try {
-                navigator.mediaSession.setPositionState({
-                    duration: audioBuffer.duration,
-                    playbackRate: currentRate,
-                    position: Math.min(pos, audioBuffer.duration)
-                });
-            } catch (e) {}
+        // --- Medium-cost updates (every 3 frames ~20fps) ---
+        if (uiFrameCount % 3 === 0) {
+            if (floatingTime) floatingTime.textContent = formatTime(pos);
+            if (floatingStripFill) floatingStripFill.style.width = (pctDone * 100) + '%';
+            if (floatingTrack) floatingTrack.textContent = currentTrackName;
+        }
+
+        // --- Lock screen position state (every 60 frames ~1/sec) ---
+        if (uiFrameCount % 60 === 0) {
+            if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
+                try {
+                    navigator.mediaSession.setPositionState({
+                        duration: audioBuffer.duration,
+                        playbackRate: currentRate,
+                        position: Math.min(pos, audioBuffer.duration)
+                    });
+                } catch (e) {}
+            }
+        }
+
+        // --- Timing-critical checks (every frame, cheap math only) ---
+
+        // Crossfade: start next track early with volume ramp
+        var crossfadeDur = settings.crossfade || 0;
+        if (isPlaying && crossfadeDur > 0 && !crossfadeTriggered && abLoopState !== 2 &&
+            pos >= audioBuffer.duration - crossfadeDur && settings.autoplay && AM.queue && AM.queue.hasNext()) {
+            crossfadeTriggered = true;
+            if (fadeGainNode) {
+                fadeGainNode.gain.cancelScheduledValues(audioCtx.currentTime);
+                fadeGainNode.gain.setValueAtTime(fadeGainNode.gain.value, audioCtx.currentTime);
+                fadeGainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + crossfadeDur);
+            }
+            AM.queue.playNext();
         }
 
         // Outro skip: trigger end early
@@ -437,7 +827,6 @@
             bufferOffset = 0;
             updatePlayIcons(false);
             if (animFrameId) cancelAnimationFrame(animFrameId);
-            // Trigger next track logic (same as natural end)
             if (settings.repeatMode === 'one') {
                 var introSkipR = settings.introSkip || 0;
                 bufferOffset = introSkipR;
@@ -463,24 +852,106 @@
             return;
         }
 
-        // Clipping detection
-        if (isPlaying && analyserNode && analyserData && clipIndicatorEl) {
+        // --- Expensive metering (every 4 frames ~15fps) ---
+        if (isPlaying && uiFrameCount % 4 === 0 && analyserNode && analyserData) {
             analyserNode.getFloatTimeDomainData(analyserData);
             var clipping = false;
+            var sumSq = 0;
             for (var ci = 0; ci < analyserData.length; ci++) {
-                if (Math.abs(analyserData[ci]) >= 1.0) { clipping = true; break; }
+                var sample = analyserData[ci];
+                if (Math.abs(sample) >= 1.0) clipping = true;
+                sumSq += sample * sample;
             }
-            if (clipping) {
+            if (clipping && clipIndicatorEl) {
                 clipIndicatorEl.classList.add('active');
                 clearTimeout(clipHoldTimer);
                 clipHoldTimer = setTimeout(function () {
                     if (clipIndicatorEl) clipIndicatorEl.classList.remove('active');
                 }, 500);
             }
+            var rms = Math.sqrt(sumSq / analyserData.length);
+            var dbfs = rms > 0 ? 20 * Math.log10(rms) : -100;
+            if (loudnessValueEl) {
+                loudnessValueEl.textContent = dbfs > -100 ? dbfs.toFixed(1) + ' dB' : '-\u221E dB';
+            }
+            if (loudnessBarEl) {
+                var pct = Math.max(0, Math.min(100, ((dbfs + 60) / 60) * 100));
+                loudnessBarEl.style.width = pct + '%';
+                loudnessBarEl.style.background = dbfs > -3 ? '#ff453a' : dbfs > -14 ? '#ff9f0a' : '#30d158';
+            }
+        }
+
+        // --- Spectrum analyzer (every 2 frames ~30fps) ---
+        if (isPlaying && uiFrameCount % 2 === 0 && analyserNode && spectrumFreqData && spectrumCanvas && spectrumCtx && spectrumVisible) {
+            analyserNode.getByteFrequencyData(spectrumFreqData);
+            drawSpectrum();
         }
 
         if (isPlaying) {
             animFrameId = requestAnimationFrame(updateSeekUI);
+        }
+    }
+
+    function drawSpectrum() {
+        if (!spectrumCanvas || !spectrumCtx || !spectrumFreqData) return;
+        var wrap = spectrumCanvas.parentElement;
+        var dpr = window.devicePixelRatio || 1;
+        var w = wrap.clientWidth;
+        var h = 80;
+        if (spectrumCanvas.width !== w * dpr || spectrumCanvas.height !== h * dpr) {
+            spectrumCanvas.width = w * dpr;
+            spectrumCanvas.height = h * dpr;
+            spectrumCtx.scale(dpr, dpr);
+        }
+
+        spectrumCtx.clearRect(0, 0, w, h);
+
+        var accent = cachedAccent;
+        // Use only lower ~60% of bins (above that is mostly silence for music)
+        var usableBins = Math.floor(spectrumFreqData.length * 0.6);
+        var mode = spectrumModeSelect ? spectrumModeSelect.value : 'bars';
+
+        if (mode === 'line') {
+            spectrumCtx.beginPath();
+            spectrumCtx.strokeStyle = accent;
+            spectrumCtx.lineWidth = 1.5;
+            for (var i = 0; i < usableBins; i++) {
+                var x = (i / usableBins) * w;
+                var val = spectrumFreqData[i] / 255;
+                var y = h - val * h * 0.9;
+                if (i === 0) spectrumCtx.moveTo(x, y);
+                else spectrumCtx.lineTo(x, y);
+            }
+            spectrumCtx.stroke();
+            // Fill under the line
+            spectrumCtx.lineTo(w, h);
+            spectrumCtx.lineTo(0, h);
+            spectrumCtx.closePath();
+            spectrumCtx.fillStyle = accent;
+            spectrumCtx.globalAlpha = 0.15;
+            spectrumCtx.fill();
+            spectrumCtx.globalAlpha = 1.0;
+        } else {
+            var numBars = 64;
+            var binsPerBar = Math.floor(usableBins / numBars);
+            var barW = (w / numBars) * 0.7;
+            var gap = (w / numBars) * 0.3;
+
+            for (var i = 0; i < numBars; i++) {
+                var sum = 0;
+                for (var j = 0; j < binsPerBar; j++) {
+                    sum += spectrumFreqData[i * binsPerBar + j];
+                }
+                var avg = sum / binsPerBar / 255;
+                var barH = Math.max(1, avg * h * 0.9);
+                var x = i * (barW + gap);
+
+                // Color gradient: accent at bottom, brighter at top
+                spectrumCtx.fillStyle = accent;
+                spectrumCtx.globalAlpha = 0.4 + avg * 0.6;
+                spectrumCtx.fillRect(x, h - barH, barW, barH);
+            }
+            spectrumCtx.globalAlpha = 1.0;
         }
     }
 
@@ -596,9 +1067,11 @@
         if (playing) {
             playIcon.innerHTML = '&#9646;&#9646;';
             miniPlayerPlayIcon.innerHTML = '&#9646;&#9646;';
+            if (floatingPlayBtn) floatingPlayBtn.innerHTML = '&#9646;&#9646;';
         } else {
             playIcon.innerHTML = '&#9654;';
             miniPlayerPlayIcon.innerHTML = '&#9654;';
+            if (floatingPlayBtn) floatingPlayBtn.innerHTML = '&#9654;';
         }
         updateMediaSessionState(playing);
     }
@@ -606,10 +1079,14 @@
     // --- Media Session API (lock screen controls) ---
     function updateMediaSession(trackName, trackSub) {
         if (!('mediaSession' in navigator)) return;
-        navigator.mediaSession.metadata = new MediaMetadata({
+        var metaOpts = {
             title: trackName,
             artist: trackSub || 'Audio Manipulator'
-        });
+        };
+        if (currentArtworkUrl) {
+            metaOpts.artwork = [{ src: currentArtworkUrl, sizes: '512x512', type: 'image/jpeg' }];
+        }
+        navigator.mediaSession.metadata = new MediaMetadata(metaOpts);
     }
 
     function updateMediaSessionState(playing) {
@@ -710,6 +1187,338 @@
     }
 
     // --- Load a track by File object and metadata ---
+    function onBufferReady(buffer, trackId, trackName, trackSub, autoplay) {
+        audioBuffer = buffer;
+        playBtn.disabled = false;
+        seekSlider.disabled = false;
+        seekSlider.value = 0;
+        totalTimeEl.textContent = formatTime(buffer.duration);
+        currentTimeEl.textContent = '0:00';
+        bufferOffset = 0;
+
+        // Update Now Playing display
+        npTrackName.textContent = trackName;
+        npTrackSub.textContent = trackSub || '';
+
+        // Update mini player
+        miniPlayerTitle.textContent = trackName;
+        miniPlayerTime.textContent = '0:00';
+        miniPlayerProgress.style.width = '0%';
+
+        // Update nav buttons
+        updateNavButtons();
+
+        // Update lock screen metadata
+        updateMediaSession(trackName, trackSub);
+
+        // Write duration back to library entry
+        if (AM.library && AM.library.updateDuration) {
+            AM.library.updateDuration(trackId, buffer.duration);
+        }
+
+        // Render waveform, mini waveform, spectrum, cues and queue peek
+        drawWaveform(buffer);
+        drawMiniWaveform(buffer);
+        if (spectrumSection) spectrumSection.style.display = '';
+        renderCues();
+        renderQueuePeek();
+
+        // Auto-level (replay gain)
+        if (settings.autoLevel && buffer) {
+            var sumSq = 0;
+            var totalSamples = 0;
+            for (var ch = 0; ch < buffer.numberOfChannels; ch++) {
+                var data = buffer.getChannelData(ch);
+                for (var si = 0; si < data.length; si++) {
+                    sumSq += data[si] * data[si];
+                }
+                totalSamples += data.length;
+            }
+            var rms = Math.sqrt(sumSq / totalSamples);
+            var dbfs = rms > 0 ? 20 * Math.log10(rms) : -100;
+            var targetDb = -14; // target loudness
+            var adjust = targetDb - dbfs;
+            var gain = Math.pow(10, adjust / 20);
+            gain = Math.max(0.1, Math.min(gain, 3.0)); // clamp
+            volumeSlider.value = gain;
+            volumeSlider.dispatchEvent(new Event('input'));
+        }
+
+        // Apply intro skip
+        var introSkip = settings.introSkip || 0;
+        if (introSkip > 0 && introSkip < buffer.duration) {
+            bufferOffset = introSkip;
+            seekSlider.value = Math.round((introSkip / buffer.duration) * 1000);
+            currentTimeEl.textContent = formatTime(introSkip);
+        }
+
+        if (autoplay) {
+            startPlayback();
+        }
+
+        // Detect BPM
+        detectBPM(buffer);
+
+        // Preload next track for gapless playback
+        preloadNextTrack();
+    }
+
+    // --- BPM Detection ---
+    var npTrackBpm = document.getElementById('npTrackBpm');
+
+    function detectBPM(buffer) {
+        if (!npTrackBpm) return;
+        npTrackBpm.style.display = 'none';
+
+        // Run async to avoid blocking UI
+        setTimeout(function () {
+            try {
+                var sr = buffer.sampleRate;
+                var data = buffer.getChannelData(0);
+
+                // Downsample to ~11kHz for efficiency
+                var factor = Math.max(1, Math.floor(sr / 11025));
+                var len = Math.floor(data.length / factor);
+                var downsampled = new Float32Array(len);
+                for (var i = 0; i < len; i++) {
+                    downsampled[i] = data[i * factor];
+                }
+                var dsSr = sr / factor;
+
+                // Compute energy in short windows (~23ms)
+                var winSize = Math.floor(dsSr * 0.023);
+                var numWins = Math.floor(downsampled.length / winSize);
+                var energy = new Float32Array(numWins);
+                for (var w = 0; w < numWins; w++) {
+                    var sum = 0;
+                    var offset = w * winSize;
+                    for (var j = 0; j < winSize; j++) {
+                        sum += downsampled[offset + j] * downsampled[offset + j];
+                    }
+                    energy[w] = sum / winSize;
+                }
+
+                // Compute energy flux (onset detection)
+                var flux = new Float32Array(numWins);
+                for (var w = 1; w < numWins; w++) {
+                    var diff = energy[w] - energy[w - 1];
+                    flux[w] = diff > 0 ? diff : 0;
+                }
+
+                // Adaptive threshold: find peaks in flux
+                var threshWin = 8;
+                var peaks = [];
+                for (var w = threshWin; w < flux.length - threshWin; w++) {
+                    var localMean = 0;
+                    for (var k = w - threshWin; k <= w + threshWin; k++) localMean += flux[k];
+                    localMean /= (threshWin * 2 + 1);
+                    if (flux[w] > localMean * 1.5 && flux[w] > flux[w - 1] && flux[w] > flux[w + 1]) {
+                        peaks.push(w);
+                    }
+                }
+
+                if (peaks.length < 4) {
+                    npTrackBpm.textContent = 'BPM: —';
+                    npTrackBpm.style.display = '';
+                    return;
+                }
+
+                // Compute intervals between peaks in seconds
+                var intervals = [];
+                for (var p = 1; p < peaks.length; p++) {
+                    var interval = (peaks[p] - peaks[p - 1]) * winSize / dsSr;
+                    if (interval > 0.25 && interval < 2.0) { // 30-240 BPM range
+                        intervals.push(interval);
+                    }
+                }
+
+                if (intervals.length < 3) {
+                    npTrackBpm.textContent = 'BPM: —';
+                    npTrackBpm.style.display = '';
+                    return;
+                }
+
+                // Cluster intervals and find dominant
+                intervals.sort(function (a, b) { return a - b; });
+                var bestCount = 0;
+                var bestInterval = 0;
+                var tolerance = 0.03; // 30ms
+
+                for (var i = 0; i < intervals.length; i++) {
+                    var count = 0;
+                    var sum = 0;
+                    for (var j = 0; j < intervals.length; j++) {
+                        if (Math.abs(intervals[j] - intervals[i]) < tolerance) {
+                            count++;
+                            sum += intervals[j];
+                        }
+                    }
+                    if (count > bestCount) {
+                        bestCount = count;
+                        bestInterval = sum / count;
+                    }
+                }
+
+                if (bestInterval > 0) {
+                    var bpm = Math.round(60 / bestInterval);
+                    // Normalize to 60-200 range
+                    while (bpm > 200) bpm = Math.round(bpm / 2);
+                    while (bpm < 60) bpm *= 2;
+                    npTrackBpm.textContent = bpm + ' BPM';
+                    npTrackBpm.style.display = '';
+                    // Store BPM in metadata for library display
+                    if (currentTrackId && AM.library && AM.library.setMetadataField) {
+                        AM.library.setMetadataField(currentTrackId, 'bpm', bpm);
+                    }
+                } else {
+                    npTrackBpm.textContent = 'BPM: —';
+                    npTrackBpm.style.display = '';
+                }
+            } catch (e) {
+                console.warn('BPM detection error:', e);
+            }
+        }, 100);
+    }
+
+    function preloadNextTrack() {
+        if (!AM.queue || !AM.queue.hasNext()) return;
+        var nextInfo = AM.queue.getNextTrackInfo();
+        if (!nextInfo || !nextInfo.file) return;
+        var reader = new FileReader();
+        reader.onload = function (event) {
+            if (!audioCtx) return;
+            audioCtx.decodeAudioData(event.target.result)
+                .then(function (buffer) {
+                    preloadedBuffer = buffer;
+                    preloadedTrackId = nextInfo.trackId;
+                    preloadedTrackName = nextInfo.trackName;
+                    preloadedTrackSub = nextInfo.trackSub;
+                })
+                .catch(function () {
+                    preloadedBuffer = null;
+                    preloadedTrackId = null;
+                });
+        };
+        reader.readAsArrayBuffer(nextInfo.file);
+    }
+
+    // --- ID3v2 Album Art Extraction ---
+    function extractAlbumArt(arrayBuffer) {
+        try {
+            var view = new DataView(arrayBuffer);
+            // Check for ID3v2 header: "ID3"
+            if (view.getUint8(0) !== 0x49 || view.getUint8(1) !== 0x44 || view.getUint8(2) !== 0x33) {
+                return null;
+            }
+            var version = view.getUint8(3); // 2, 3, or 4
+            var flags = view.getUint8(5);
+            // Syncsafe integer for tag size
+            var tagSize = (view.getUint8(6) << 21) | (view.getUint8(7) << 14) |
+                          (view.getUint8(8) << 7) | view.getUint8(9);
+            var offset = 10;
+            // Skip extended header if present (ID3v2.3+)
+            if (version >= 3 && (flags & 0x40)) {
+                var extSize = view.getUint32(offset);
+                offset += extSize;
+            }
+
+            var frameHeaderSize = version === 2 ? 6 : 10;
+            var apicTag = version === 2 ? 'PIC' : 'APIC';
+            var end = Math.min(10 + tagSize, arrayBuffer.byteLength);
+
+            while (offset + frameHeaderSize < end) {
+                var frameId = '';
+                var frameSize;
+                if (version === 2) {
+                    frameId = String.fromCharCode(view.getUint8(offset), view.getUint8(offset + 1), view.getUint8(offset + 2));
+                    frameSize = (view.getUint8(offset + 3) << 16) | (view.getUint8(offset + 4) << 8) | view.getUint8(offset + 5);
+                } else {
+                    frameId = String.fromCharCode(view.getUint8(offset), view.getUint8(offset + 1),
+                                                   view.getUint8(offset + 2), view.getUint8(offset + 3));
+                    if (version === 4) {
+                        // ID3v2.4 uses syncsafe integers for frame size
+                        frameSize = (view.getUint8(offset + 4) << 21) | (view.getUint8(offset + 5) << 14) |
+                                    (view.getUint8(offset + 6) << 7) | view.getUint8(offset + 7);
+                    } else {
+                        frameSize = view.getUint32(offset + 4);
+                    }
+                }
+
+                if (frameSize === 0 || frameId === '\0\0\0\0' || frameId === '\0\0\0') break;
+
+                if (frameId === apicTag) {
+                    var dataStart = offset + frameHeaderSize;
+                    var d = dataStart;
+
+                    if (version === 2) {
+                        // PIC: encoding(1) + image_format(3) + pic_type(1) + description(null-term) + data
+                        d += 1 + 3 + 1; // skip encoding, format, pic type
+                        while (d < dataStart + frameSize && view.getUint8(d) !== 0) d++;
+                        d++; // skip null terminator
+                        var mimeType = 'image/jpeg';
+                    } else {
+                        // APIC: encoding(1) + mime_type(null-term) + pic_type(1) + description(null-term) + data
+                        var encoding = view.getUint8(d);
+                        d++;
+                        var mimeBytes = [];
+                        while (d < dataStart + frameSize && view.getUint8(d) !== 0) {
+                            mimeBytes.push(view.getUint8(d));
+                            d++;
+                        }
+                        d++; // skip null terminator
+                        var mimeType = String.fromCharCode.apply(null, mimeBytes) || 'image/jpeg';
+                        d++; // skip picture type byte
+                        // Skip description (null-terminated, encoding-dependent)
+                        if (encoding === 1 || encoding === 2) {
+                            // UTF-16: look for double null
+                            while (d + 1 < dataStart + frameSize) {
+                                if (view.getUint8(d) === 0 && view.getUint8(d + 1) === 0) { d += 2; break; }
+                                d += 2;
+                            }
+                        } else {
+                            while (d < dataStart + frameSize && view.getUint8(d) !== 0) d++;
+                            d++;
+                        }
+                    }
+
+                    var imgLen = frameSize - (d - dataStart);
+                    if (imgLen > 0) {
+                        var imgData = new Uint8Array(arrayBuffer, d, imgLen);
+                        return new Blob([imgData], { type: mimeType });
+                    }
+                }
+
+                offset += frameHeaderSize + frameSize;
+            }
+        } catch (e) {
+            // Silently fail — album art is optional
+        }
+        return null;
+    }
+
+    function showAlbumArt(blob) {
+        if (currentArtworkUrl) {
+            URL.revokeObjectURL(currentArtworkUrl);
+            currentArtworkUrl = null;
+        }
+        if (!npAlbumArt) return;
+        var trackInfo = npAlbumArt.parentElement;
+        if (!blob) {
+            npAlbumArt.style.display = 'none';
+            npAlbumArt.innerHTML = '';
+            if (trackInfo) trackInfo.classList.remove('has-art');
+            return;
+        }
+        currentArtworkUrl = URL.createObjectURL(blob);
+        npAlbumArt.innerHTML = '';
+        var img = document.createElement('img');
+        img.src = currentArtworkUrl;
+        img.alt = 'Album Art';
+        npAlbumArt.appendChild(img);
+        npAlbumArt.style.display = '';
+        if (trackInfo) trackInfo.classList.add('has-art');
+    }
+
     function loadTrack(file, trackId, trackName, trackSub, autoplay) {
         ensureAudioContext();
         stopPlayback();
@@ -726,57 +1535,36 @@
         currentTrackId = trackId;
         currentTrackName = trackName;
         currentTrackSub = trackSub || '';
+        crossfadeTriggered = false;
 
         npTrackName.textContent = 'Loading...';
         npTrackSub.textContent = '';
         miniPlayerTitle.textContent = 'Loading...';
 
+        // Check for preloaded buffer (gapless playback)
+        if (preloadedBuffer && preloadedTrackId === trackId) {
+            onBufferReady(preloadedBuffer, trackId, trackName, trackSub, autoplay);
+            preloadedBuffer = null;
+            preloadedTrackId = null;
+            return;
+        }
+        preloadedBuffer = null;
+        preloadedTrackId = null;
+
+        // Clear previous album art
+        showAlbumArt(null);
+
         var reader = new FileReader();
         reader.onload = function (event) {
-            audioCtx.decodeAudioData(event.target.result)
+            var rawBuf = event.target.result;
+
+            // Extract album art from ID3v2 tags (non-blocking)
+            var artBlob = extractAlbumArt(rawBuf);
+            showAlbumArt(artBlob);
+
+            audioCtx.decodeAudioData(rawBuf)
                 .then(function (buffer) {
-                    audioBuffer = buffer;
-                    playBtn.disabled = false;
-                    seekSlider.disabled = false;
-                    seekSlider.value = 0;
-                    totalTimeEl.textContent = formatTime(buffer.duration);
-                    currentTimeEl.textContent = '0:00';
-                    bufferOffset = 0;
-
-                    // Update Now Playing display
-                    npTrackName.textContent = trackName;
-                    npTrackSub.textContent = trackSub || '';
-
-                    // Update mini player
-                    miniPlayerTitle.textContent = trackName;
-                    miniPlayerTime.textContent = '0:00';
-                    miniPlayerProgress.style.width = '0%';
-
-                    // Update nav buttons
-                    updateNavButtons();
-
-                    // Update lock screen metadata
-                    updateMediaSession(trackName, trackSub);
-
-                    // Write duration back to library entry
-                    if (AM.library && AM.library.updateDuration) {
-                        AM.library.updateDuration(trackId, buffer.duration);
-                    }
-
-                    // Render cue points for this track
-                    renderCues();
-
-                    // Apply intro skip
-                    var introSkip = settings.introSkip || 0;
-                    if (introSkip > 0 && introSkip < buffer.duration) {
-                        bufferOffset = introSkip;
-                        seekSlider.value = Math.round((introSkip / buffer.duration) * 1000);
-                        currentTimeEl.textContent = formatTime(introSkip);
-                    }
-
-                    if (autoplay) {
-                        startPlayback();
-                    }
+                    onBufferReady(buffer, trackId, trackName, trackSub, autoplay);
                 })
                 .catch(function () {
                     npTrackName.textContent = 'Error: could not decode';
@@ -799,6 +1587,77 @@
             prevBtn.disabled = true;
             nextBtn.disabled = true;
         }
+    }
+
+    // --- Floating strip ---
+    if (npOverlayEl && floatingStrip) {
+        npOverlayEl.addEventListener('scroll', function () {
+            // Show floating strip when scrolled past the transport controls (~300px)
+            var show = npOverlayEl.scrollTop > 300;
+            floatingStrip.classList.toggle('visible', show);
+        });
+
+        if (floatingPlayBtn) {
+            floatingPlayBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (!audioBuffer) return;
+                if (isPlaying) {
+                    pausePlayback();
+                } else {
+                    startPlayback();
+                }
+            });
+        }
+    }
+
+    // --- Draggable floating mini player (#89) ---
+    if (floatingStrip) {
+        var dragStartY = 0;
+        var stripStartTop = 0;
+        var isDragging = false;
+
+        floatingStrip.addEventListener('touchstart', function (e) {
+            // Only start drag if not tapping a button
+            if (e.target.tagName === 'BUTTON') return;
+            dragStartY = e.touches[0].clientY;
+            var rect = floatingStrip.getBoundingClientRect();
+            stripStartTop = rect.top;
+            isDragging = false;
+        });
+
+        floatingStrip.addEventListener('touchmove', function (e) {
+            if (dragStartY === 0) return;
+            var dy = e.touches[0].clientY - dragStartY;
+            if (Math.abs(dy) > 8) isDragging = true;
+            if (!isDragging) return;
+            e.preventDefault();
+            var newTop = stripStartTop + dy;
+            // Clamp to viewport
+            var minTop = 40;
+            var maxTop = window.innerHeight - floatingStrip.offsetHeight - 10;
+            newTop = Math.max(minTop, Math.min(maxTop, newTop));
+            floatingStrip.style.position = 'fixed';
+            floatingStrip.style.top = newTop + 'px';
+            floatingStrip.style.bottom = 'auto';
+        }, { passive: false });
+
+        floatingStrip.addEventListener('touchend', function () {
+            dragStartY = 0;
+            isDragging = false;
+        });
+    }
+
+    // --- Spectrum toggle ---
+    if (spectrumToggleBtn) {
+        spectrumToggleBtn.addEventListener('click', function () {
+            spectrumVisible = !spectrumVisible;
+            spectrumCanvas.style.display = spectrumVisible ? 'block' : 'none';
+            spectrumToggleBtn.textContent = spectrumVisible ? 'Hide' : 'Show';
+            if (!spectrumVisible && spectrumCtx) {
+                var dpr = window.devicePixelRatio || 1;
+                spectrumCtx.clearRect(0, 0, spectrumCanvas.width / dpr, 80);
+            }
+        });
     }
 
     // --- Event listeners ---
@@ -857,6 +1716,87 @@
         }
     });
 
+    // --- Gesture controls on track info ---
+    (function () {
+        var trackInfoEl = document.querySelector('.np-track-info');
+        if (!trackInfoEl) return;
+        var startX = 0, startY = 0, startTime = 0;
+        var lastTap = 0;
+
+        trackInfoEl.addEventListener('touchstart', function (e) {
+            var t = e.touches[0];
+            startX = t.clientX;
+            startY = t.clientY;
+            startTime = Date.now();
+        }, { passive: true });
+
+        trackInfoEl.addEventListener('touchend', function (e) {
+            var t = e.changedTouches[0];
+            var dx = t.clientX - startX;
+            var dy = t.clientY - startY;
+            var elapsed = Date.now() - startTime;
+            var absDx = Math.abs(dx);
+            var absDy = Math.abs(dy);
+
+            // Swipe detection (min 60px, max 400ms, horizontal dominant)
+            if (elapsed < 400 && absDx > 60 && absDx > absDy * 1.5) {
+                if (dx < 0 && AM.queue && AM.queue.hasNext()) {
+                    // Swipe left = next track
+                    AM.queue.playNext();
+                    if (AM.haptic) AM.haptic();
+                } else if (dx > 0) {
+                    // Swipe right = prev / restart
+                    if (AM.haptic) AM.haptic();
+                    if (audioBuffer && getCurrentBufferPosition() > 3 || !AM.queue || !AM.queue.hasPrev()) {
+                        // Restart
+                        var wasPlaying = isPlaying;
+                        stopPlayback();
+                        bufferOffset = 0;
+                        seekSlider.value = 0;
+                        currentTimeEl.textContent = '0:00';
+                        if (wasPlaying) startPlayback();
+                    } else {
+                        AM.queue.playPrev();
+                    }
+                }
+                return;
+            }
+
+            // Double-tap = play/pause
+            var now = Date.now();
+            if (now - lastTap < 300) {
+                if (audioBuffer) {
+                    if (isPlaying) pausePlayback(); else startPlayback();
+                    if (AM.haptic) AM.haptic();
+                }
+                lastTap = 0;
+                return;
+            }
+            lastTap = now;
+        }, { passive: true });
+    })();
+
+    // Waveform tap-to-seek
+    if (waveformCanvas) {
+        waveformCanvas.addEventListener('click', function (e) {
+            if (!audioBuffer) return;
+            var rect = waveformCanvas.getBoundingClientRect();
+            var fraction = (e.clientX - rect.left) / rect.width;
+            fraction = Math.max(0, Math.min(1, fraction));
+            var pos = fraction * audioBuffer.duration;
+            bufferOffset = pos;
+            seekSlider.value = Math.round(fraction * 1000);
+            currentTimeEl.textContent = formatTime(pos);
+            if (isPlaying) {
+                sourceNode.onended = null;
+                sourceNode.stop();
+                sourceNode = null;
+                isPlaying = false;
+                startPlayback();
+            }
+        });
+    }
+
     // Seek
     seekSlider.addEventListener('input', function () {
         if (!audioBuffer) return;
@@ -906,6 +1846,44 @@
             currentRate = rate;
         }
     }
+
+    // Speed ramp
+    var speedRampTargetEl = document.getElementById('speedRampTarget');
+    var speedRampDurationEl = document.getElementById('speedRampDuration');
+    var speedRampBtn = document.getElementById('speedRampBtn');
+    var speedRampTimer = null;
+
+    speedRampBtn.addEventListener('click', function () {
+        if (speedRampTimer) {
+            // Cancel active ramp
+            clearInterval(speedRampTimer);
+            speedRampTimer = null;
+            speedRampBtn.textContent = 'Go';
+            return;
+        }
+        var targetPct = parseInt(speedRampTargetEl.value);
+        var duration = parseFloat(speedRampDurationEl.value) * 1000; // ms
+        var startPct = parseInt(rateSlider.value);
+        if (targetPct === startPct) return;
+
+        var startTime = Date.now();
+        var stepInterval = 30; // ms per frame
+        speedRampBtn.textContent = 'Stop';
+
+        speedRampTimer = setInterval(function () {
+            var elapsed = Date.now() - startTime;
+            var progress = Math.min(elapsed / duration, 1);
+            var currentPct = Math.round(startPct + (targetPct - startPct) * progress);
+            rateSlider.value = currentPct;
+            rateSlider.dispatchEvent(new Event('input'));
+
+            if (progress >= 1) {
+                clearInterval(speedRampTimer);
+                speedRampTimer = null;
+                speedRampBtn.textContent = 'Go';
+            }
+        }, stepInterval);
+    });
 
     function updateSemitoneDisplay() {
         var sign = semitones > 0 ? '+' : '';
@@ -998,6 +1976,120 @@
         updateAudioChain();
     });
 
+    // Bitcrusher controls
+    var bitcrusherLabelEl = document.getElementById('bitcrusherLabel');
+    bitcrusherBitsSlider.addEventListener('input', function () {
+        bitcrusherBits = parseInt(bitcrusherBitsSlider.value);
+        bitcrusherBitsValue.textContent = bitcrusherBits;
+        var active = bitcrusherBits < 16 || bitcrusherCrush > 1;
+        bitcrusherLabelEl.textContent = active ? bitcrusherBits + 'b / ' + bitcrusherCrush + 'x' : 'Off';
+        updateAudioChain();
+    });
+
+    bitcrusherCrushSlider.addEventListener('input', function () {
+        bitcrusherCrush = parseInt(bitcrusherCrushSlider.value);
+        bitcrusherCrushValue.textContent = bitcrusherCrush + 'x';
+        var active = bitcrusherBits < 16 || bitcrusherCrush > 1;
+        bitcrusherLabelEl.textContent = active ? bitcrusherBits + 'b / ' + bitcrusherCrush + 'x' : 'Off';
+        updateAudioChain();
+    });
+
+    // Ring modulator controls
+    var ringModSlider = document.getElementById('ringModSlider');
+    var ringModFreqEl = document.getElementById('ringModFreqValue');
+    var ringModLabelEl = document.getElementById('ringModLabel');
+
+    ringModSlider.addEventListener('input', function () {
+        ringModFreq = parseInt(ringModSlider.value);
+        if (ringModFreq === 0) {
+            ringModFreqEl.textContent = '0';
+            ringModLabelEl.textContent = 'Off';
+        } else {
+            ringModFreqEl.textContent = ringModFreq + ' Hz';
+            ringModLabelEl.textContent = ringModFreq + ' Hz';
+        }
+        if (ringModOsc) {
+            ringModOsc.frequency.value = ringModFreq;
+        }
+        updateAudioChain();
+    });
+
+    // Delay / echo controls
+    var delayTimeSlider = document.getElementById('delayTimeSlider');
+    var delayTimeValueEl = document.getElementById('delayTimeValue');
+    var delayFeedbackSlider = document.getElementById('delayFeedbackSlider');
+    var delayFeedbackValueEl = document.getElementById('delayFeedbackValue');
+    var delayMixSlider = document.getElementById('delayMixSlider');
+    var delayMixValueEl = document.getElementById('delayMixValue');
+    var delayLabelEl = document.getElementById('delayLabel');
+
+    delayTimeSlider.addEventListener('input', function () {
+        var ms = parseInt(delayTimeSlider.value);
+        delayTime = ms / 1000;
+        delayTimeValueEl.textContent = ms + ' ms';
+        delayLabelEl.textContent = ms === 0 ? 'Off' : ms + ' ms';
+        if (delayNode) delayNode.delayTime.value = delayTime || 0.001;
+        updateAudioChain();
+    });
+
+    delayFeedbackSlider.addEventListener('input', function () {
+        delayFeedbackVal = parseInt(delayFeedbackSlider.value) / 100;
+        delayFeedbackValueEl.textContent = delayFeedbackSlider.value + '%';
+        if (delayFeedback) delayFeedback.gain.value = delayFeedbackVal;
+    });
+
+    delayMixSlider.addEventListener('input', function () {
+        var mix = parseInt(delayMixSlider.value) / 100;
+        delayMixValueEl.textContent = delayMixSlider.value + '%';
+        if (delayWet) delayWet.gain.value = mix;
+    });
+
+    // Chorus / Flanger controls
+    var chorusModeSelect = document.getElementById('chorusModeSelect');
+    var chorusRateSlider = document.getElementById('chorusRateSlider');
+    var chorusRateValueEl = document.getElementById('chorusRateValue');
+    var chorusDepthSlider = document.getElementById('chorusDepthSlider');
+    var chorusDepthValueEl = document.getElementById('chorusDepthValue');
+    var chorusLabelEl = document.getElementById('chorusLabel');
+
+    chorusModeSelect.addEventListener('change', function () {
+        var mode = chorusModeSelect.value;
+        chorusActive = mode !== 'off';
+        chorusLabelEl.textContent = chorusActive ? mode.charAt(0).toUpperCase() + mode.slice(1) : 'Off';
+        if (mode === 'chorus') {
+            if (chorusDelay) chorusDelay.delayTime.value = 0.015;
+            if (chorusLfo) chorusLfo.frequency.value = 1.5;
+            if (chorusLfoGain) chorusLfoGain.gain.value = 0.005;
+            chorusRateSlider.value = 15;
+            chorusRateValueEl.textContent = '1.5 Hz';
+            chorusDepthSlider.value = 50;
+            chorusDepthValueEl.textContent = '50%';
+        } else if (mode === 'flanger') {
+            if (chorusDelay) chorusDelay.delayTime.value = 0.003;
+            if (chorusLfo) chorusLfo.frequency.value = 0.5;
+            if (chorusLfoGain) chorusLfoGain.gain.value = 0.002;
+            chorusRateSlider.value = 5;
+            chorusRateValueEl.textContent = '0.5 Hz';
+            chorusDepthSlider.value = 20;
+            chorusDepthValueEl.textContent = '20%';
+        }
+        updateAudioChain();
+    });
+
+    chorusRateSlider.addEventListener('input', function () {
+        var rate = parseInt(chorusRateSlider.value) / 10;
+        chorusRateValueEl.textContent = rate.toFixed(1) + ' Hz';
+        if (chorusLfo) chorusLfo.frequency.value = rate;
+    });
+
+    chorusDepthSlider.addEventListener('input', function () {
+        var pct = parseInt(chorusDepthSlider.value);
+        chorusDepthValueEl.textContent = pct + '%';
+        var isFlanger = chorusModeSelect.value === 'flanger';
+        var maxDepth = isFlanger ? 0.004 : 0.01;
+        if (chorusLfoGain) chorusLfoGain.gain.value = maxDepth * (pct / 100);
+    });
+
     // LP/HP filter sweeps
     function sliderToFreq(val) {
         // Logarithmic: 0→20Hz, 1000→20000Hz
@@ -1088,6 +2180,7 @@
         abLoopState = 0;
         abLoopBtn.classList.remove('active');
         abLoopLabel.childNodes[0].textContent = 'A/B ';
+        if (audioBuffer) drawWaveform(audioBuffer);
     }
 
     abLoopBtn.addEventListener('click', function () {
@@ -1101,6 +2194,7 @@
             abLoopState = 1;
             abLoopBtn.classList.add('active');
             abLoopLabel.childNodes[0].textContent = 'A: ' + formatTime(abLoopA) + ' → ? ';
+            if (audioBuffer) drawWaveform(audioBuffer);
         } else if (abLoopState === 1) {
             // Set point B
             if (pos <= abLoopA) {
@@ -1110,6 +2204,7 @@
             abLoopB = pos;
             abLoopState = 2;
             abLoopLabel.childNodes[0].textContent = formatTime(abLoopA) + ' → ' + formatTime(abLoopB) + ' ';
+            if (audioBuffer) drawWaveform(audioBuffer);
         } else {
             // Clear loop
             clearAbLoop();
@@ -1167,6 +2262,159 @@
         AM.showToast('Normalized (peak: ' + peakDb + ' dB)');
     });
 
+    // --- Audio Export ---
+    var exportBtn = document.getElementById('exportBtn');
+    exportBtn.addEventListener('click', function () {
+        if (!audioBuffer) { AM.showToast('No track loaded'); return; }
+        if (AM.haptic) AM.haptic();
+
+        var sr = audioBuffer.sampleRate;
+        var ch = audioBuffer.numberOfChannels;
+        var len = audioBuffer.length;
+        var offline = new OfflineAudioContext(ch, len, sr);
+
+        // Source
+        var src = offline.createBufferSource();
+        src.buffer = audioBuffer;
+        src.playbackRate.value = currentRate;
+
+        // Build a simplified effect chain in the offline context
+        var lastNode = src;
+
+        // Volume
+        var vol = offline.createGain();
+        vol.gain.value = parseFloat(volumeSlider.value);
+        lastNode.connect(vol);
+        lastNode = vol;
+
+        // EQ
+        if (settings.eqEnabled && settings.eqBands) {
+            var offEqFilters = [];
+            for (var i = 0; i < EQ_FREQUENCIES.length; i++) {
+                var f = offline.createBiquadFilter();
+                f.type = i === 0 ? 'lowshelf' : (i === EQ_FREQUENCIES.length - 1 ? 'highshelf' : 'peaking');
+                f.frequency.value = EQ_FREQUENCIES[i];
+                f.gain.value = settings.eqBands[i] || 0;
+                f.Q.value = settings.eqQ && settings.eqQ[i] !== undefined ? settings.eqQ[i] : 1.4;
+                lastNode.connect(f);
+                lastNode = f;
+                offEqFilters.push(f);
+            }
+        }
+
+        // Distortion
+        if (distortionDrive > 0 && distortionNode) {
+            var offDist = offline.createWaveShaper();
+            offDist.curve = distortionNode.curve;
+            offDist.oversample = '4x';
+            lastNode.connect(offDist);
+            lastNode = offDist;
+        }
+
+        // LP filter
+        if (lpFilterNode && lpFilterNode.frequency.value < 20000) {
+            var offLP = offline.createBiquadFilter();
+            offLP.type = 'lowpass';
+            offLP.frequency.value = lpFilterNode.frequency.value;
+            offLP.Q.value = lpFilterNode.Q.value;
+            lastNode.connect(offLP);
+            lastNode = offLP;
+        }
+
+        // HP filter
+        if (hpFilterNode && hpFilterNode.frequency.value > 20) {
+            var offHP = offline.createBiquadFilter();
+            offHP.type = 'highpass';
+            offHP.frequency.value = hpFilterNode.frequency.value;
+            offHP.Q.value = hpFilterNode.Q.value;
+            lastNode.connect(offHP);
+            lastNode = offHP;
+        }
+
+        // Limiter
+        if (settings.limiterEnabled) {
+            var offLim = offline.createDynamicsCompressor();
+            offLim.threshold.value = settings.limiterCeiling || -1;
+            offLim.knee.value = 0;
+            offLim.ratio.value = 20;
+            offLim.attack.value = 0.001;
+            offLim.release.value = 0.1;
+            lastNode.connect(offLim);
+            lastNode = offLim;
+        }
+
+        lastNode.connect(offline.destination);
+        src.start(0);
+
+        AM.showToast('Exporting...');
+        exportBtn.disabled = true;
+
+        offline.startRendering().then(function (rendered) {
+            // Encode to WAV
+            var wavData = encodeWAV(rendered);
+            var blob = new Blob([wavData], { type: 'audio/wav' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            var name = currentTrackName || 'export';
+            a.download = name.replace(/\.[^.]+$/, '') + '_fx.wav';
+            a.click();
+            URL.revokeObjectURL(url);
+            exportBtn.disabled = false;
+            AM.showToast('Export complete');
+        }).catch(function (err) {
+            console.error('Export error:', err);
+            exportBtn.disabled = false;
+            AM.showToast('Export failed');
+        });
+    });
+
+    function encodeWAV(buffer) {
+        var numCh = buffer.numberOfChannels;
+        var sr = buffer.sampleRate;
+        var len = buffer.length;
+        var bytesPerSample = 2; // 16-bit
+        var blockAlign = numCh * bytesPerSample;
+        var dataSize = len * blockAlign;
+        var headerSize = 44;
+        var arrayBuf = new ArrayBuffer(headerSize + dataSize);
+        var view = new DataView(arrayBuf);
+
+        // RIFF header
+        writeString(view, 0, 'RIFF');
+        view.setUint32(4, 36 + dataSize, true);
+        writeString(view, 8, 'WAVE');
+        writeString(view, 12, 'fmt ');
+        view.setUint32(16, 16, true); // chunk size
+        view.setUint16(20, 1, true); // PCM
+        view.setUint16(22, numCh, true);
+        view.setUint32(24, sr, true);
+        view.setUint32(28, sr * blockAlign, true);
+        view.setUint16(32, blockAlign, true);
+        view.setUint16(34, 16, true); // bits per sample
+        writeString(view, 36, 'data');
+        view.setUint32(40, dataSize, true);
+
+        // Interleave channels and write 16-bit PCM
+        var channels = [];
+        for (var c = 0; c < numCh; c++) channels.push(buffer.getChannelData(c));
+        var offset = 44;
+        for (var i = 0; i < len; i++) {
+            for (var c = 0; c < numCh; c++) {
+                var sample = Math.max(-1, Math.min(1, channels[c][i]));
+                view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+                offset += 2;
+            }
+        }
+        return arrayBuf;
+    }
+
+    function writeString(view, offset, str) {
+        for (var i = 0; i < str.length; i++) {
+            view.setUint8(offset + i, str.charCodeAt(i));
+        }
+    }
+
     reverseBtn.addEventListener('click', function () {
         if (!audioBuffer) return;
         if (AM.haptic) AM.haptic();
@@ -1195,6 +2443,7 @@
         if (bufferOffset < 0) bufferOffset = 0;
 
         reverseBtn.classList.toggle('active', isReversed);
+        drawWaveform(audioBuffer);
 
         if (wasPlaying) {
             startPlayback();
@@ -1246,6 +2495,7 @@
                 }
                 AM.storage.saveCues(allCues);
                 renderCues();
+                if (audioBuffer) drawWaveform(audioBuffer);
             });
             chip.appendChild(delBtn);
 
@@ -1370,6 +2620,38 @@
 
     updateNoiseButtons();
 
+    // --- Queue Peek (Up Next) ---
+    var queuePeekEl = document.getElementById('queuePeek');
+    var queuePeekListEl = document.getElementById('queuePeekList');
+    var PEEK_COUNT = 3;
+
+    function renderQueuePeek() {
+        if (!AM.queue) { queuePeekEl.style.display = 'none'; return; }
+        var ids = AM.queue.getTrackIds();
+        var idx = AM.queue.getCurrentIndex();
+        var upcoming = ids.slice(idx + 1, idx + 1 + PEEK_COUNT);
+        if (upcoming.length === 0) {
+            queuePeekEl.style.display = 'none';
+            return;
+        }
+        queuePeekEl.style.display = '';
+        queuePeekListEl.innerHTML = '';
+        var entries = AM.library ? AM.library.getEntries() : [];
+        upcoming.forEach(function (trackId, offset) {
+            var entry = entries.find(function (e) { return e.id === trackId; });
+            var name = entry ? entry.name : trackId;
+            var row = document.createElement('div');
+            row.className = 'queue-peek-item';
+            row.textContent = (offset + 1) + '. ' + name;
+            row.addEventListener('click', function () {
+                // Skip to this track
+                var targetIdx = idx + 1 + offset;
+                AM.queue.playAt(targetIdx);
+            });
+            queuePeekListEl.appendChild(row);
+        });
+    }
+
     // --- Playback Presets ---
     var presetSaveBtn = document.getElementById('presetSaveBtn');
     var presetsListEl = document.getElementById('presetsList');
@@ -1410,10 +2692,29 @@
         AM.showToast('Preset applied');
     }
 
-    function renderPresets() {
+    var presetSortSelect = document.getElementById('presetSortSelect');
+
+    function getSortedPresets() {
         var presets = AM.storage.getPlaybackPresets();
+        var sort = presetSortSelect.value;
+        if (sort === 'az') {
+            presets.sort(function (a, b) { return a.name.localeCompare(b.name); });
+        } else if (sort === 'za') {
+            presets.sort(function (a, b) { return b.name.localeCompare(a.name); });
+        } else if (sort === 'newest') {
+            presets.sort(function (a, b) { return (b.id || '').localeCompare(a.id || ''); });
+        } else if (sort === 'oldest') {
+            presets.sort(function (a, b) { return (a.id || '').localeCompare(b.id || ''); });
+        }
+        return presets;
+    }
+
+    presetSortSelect.addEventListener('change', function () { renderPresets(); });
+
+    function renderPresets() {
+        var presets = getSortedPresets();
         presetsListEl.innerHTML = '';
-        presets.forEach(function (p, idx) {
+        presets.forEach(function (p) {
             var chip = document.createElement('div');
             chip.className = 'preset-chip';
 
@@ -1427,15 +2728,42 @@
             delBtn.addEventListener('click', function (e) {
                 e.stopPropagation();
                 var all = AM.storage.getPlaybackPresets();
-                all.splice(idx, 1);
+                var i = all.findIndex(function (x) { return x.id === p.id; });
+                if (i >= 0) all.splice(i, 1);
                 AM.storage.savePlaybackPresets(all);
                 renderPresets();
                 AM.showToast('Preset deleted');
             });
             chip.appendChild(delBtn);
 
+            // Tap to apply
             chip.addEventListener('click', function () {
                 applyPreset(p.data);
+            });
+
+            // Long-press to rename
+            var lpTimer = null;
+            chip.addEventListener('touchstart', function (e) {
+                lpTimer = setTimeout(function () {
+                    lpTimer = null;
+                    e.preventDefault();
+                    var newName = prompt('Rename preset:', p.name);
+                    if (!newName || !newName.trim()) return;
+                    var all = AM.storage.getPlaybackPresets();
+                    var match = all.find(function (x) { return x.id === p.id; });
+                    if (match) match.name = newName.trim();
+                    AM.storage.savePlaybackPresets(all);
+                    renderPresets();
+                    AM.showToast('Preset renamed');
+                }, 600);
+            });
+            chip.addEventListener('touchend', function () {
+                if (lpTimer) clearTimeout(lpTimer);
+                lpTimer = null;
+            });
+            chip.addEventListener('touchmove', function () {
+                if (lpTimer) clearTimeout(lpTimer);
+                lpTimer = null;
             });
 
             presetsListEl.appendChild(chip);
@@ -1483,11 +2811,28 @@
         updateAudioChain: updateAudioChain,
         updateBoostWarning: updateBoostWarning,
         updateRepeatUI: updateRepeatUI,
+        renderQueuePeek: renderQueuePeek,
         hideMiniPlayer: function () {
             miniPlayer.classList.remove('visible');
             miniPlayerVisible = false;
         },
         formatTime: formatTime,
-        EQ_FREQUENCIES: EQ_FREQUENCIES
+        EQ_FREQUENCIES: EQ_FREQUENCIES,
+        refreshAccentColor: refreshAccentColor
+    };
+
+    // Expose diagnostics getters
+    AM.getDiagnostics = function () {
+        return {
+            audioCtx: audioCtx,
+            audioBuffer: audioBuffer,
+            currentRate: currentRate,
+            mediaStreamDest: mediaStreamDest,
+            distortionDrive: distortionDrive,
+            bitcrusherBits: bitcrusherBits,
+            bitcrusherCrush: bitcrusherCrush,
+            ringModFreq: ringModFreq,
+            stereoWidthValue: stereoWidthValue
+        };
     };
 })();

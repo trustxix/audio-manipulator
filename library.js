@@ -31,6 +31,30 @@
     // Notes state
     var trackNotes = storage.getNotes();
 
+    // Metadata state (custom title/artist per track)
+    var trackMetadata = storage.getMetadata();
+
+    // Tags state
+    var TAG_COLORS = [
+        { id: 'red', color: '#ff453a', label: 'Red' },
+        { id: 'orange', color: '#ff9f0a', label: 'Orange' },
+        { id: 'yellow', color: '#ffd60a', label: 'Yellow' },
+        { id: 'green', color: '#30d158', label: 'Green' },
+        { id: 'blue', color: '#0a84ff', label: 'Blue' },
+        { id: 'purple', color: '#bf5af2', label: 'Purple' }
+    ];
+    var trackTags = storage.getTags();
+
+    function setTag(entryId, tagId) {
+        if (tagId) {
+            trackTags[entryId] = tagId;
+        } else {
+            delete trackTags[entryId];
+        }
+        storage.saveTags(trackTags);
+        renderTrackList();
+    }
+
     // Filter state
     var currentAvailFilter = 'all';
     var currentFolderFilter = '';
@@ -62,8 +86,16 @@
     // --- Folder load ---
     fileInput.addEventListener('change', function (e) {
         var SUPPORTED_EXT = /\.(wav|mp3|flac|ogg|aac|m4a|opus|wma|aiff|aif)$/i;
+        var maxDepth = storage.getSettings().folderDepth || 0; // 0 = unlimited
         var files = Array.from(e.target.files).filter(function (f) {
-            return SUPPORTED_EXT.test(f.name);
+            if (!SUPPORTED_EXT.test(f.name)) return false;
+            if (maxDepth > 0 && f.webkitRelativePath) {
+                // Count subfolder depth (excluding root folder name)
+                var parts = f.webkitRelativePath.split('/');
+                var depth = parts.length - 2; // -1 for root, -1 for filename
+                if (depth > maxDepth) return false;
+            }
+            return true;
         });
 
         if (files.length === 0) {
@@ -297,6 +329,35 @@
         AM.openBottomSheet('Add ' + ids.length + ' tracks to...', options);
     });
 
+    document.getElementById('msTag').addEventListener('click', function () {
+        if (selectedIds.size === 0) return;
+        var tagOptions = TAG_COLORS.map(function (t) {
+            return {
+                icon: '\u25CF',
+                label: t.label,
+                action: function () {
+                    selectedIds.forEach(function (id) { trackTags[id] = t.id; });
+                    storage.saveTags(trackTags);
+                    AM.showToast(selectedIds.size + ' tracks tagged ' + t.label);
+                    exitSelectMode();
+                    renderTrackList();
+                }
+            };
+        });
+        tagOptions.push({
+            icon: '\u25CB',
+            label: 'Clear Tags',
+            action: function () {
+                selectedIds.forEach(function (id) { delete trackTags[id]; });
+                storage.saveTags(trackTags);
+                AM.showToast('Tags cleared');
+                exitSelectMode();
+                renderTrackList();
+            }
+        });
+        AM.openBottomSheet('Tag ' + selectedIds.size + ' tracks', tagOptions);
+    });
+
     msDelete.addEventListener('click', function () {
         if (selectedIds.size === 0) return;
         if (!confirm('Remove ' + selectedIds.size + ' tracks from library?')) return;
@@ -363,7 +424,10 @@
         return parts.length > 1 ? parts[0] : '';
     }
 
-    function getDisplayName(filename) {
+    function getDisplayName(filename, entryId) {
+        if (entryId && trackMetadata[entryId] && trackMetadata[entryId].title) {
+            return trackMetadata[entryId].title;
+        }
         return filename.replace(/\.(wav|mp3|flac|ogg|aac|m4a|opus|wma|aiff|aif)$/i, '');
     }
 
@@ -475,23 +539,41 @@
             li.appendChild(check);
         }
 
+        // Tag dot
+        var tagId = trackTags[entry.id];
+        if (tagId) {
+            var tagDef = TAG_COLORS.find(function (t) { return t.id === tagId; });
+            if (tagDef) {
+                var dot = document.createElement('span');
+                dot.className = 'tag-dot';
+                dot.style.background = tagDef.color;
+                li.appendChild(dot);
+            }
+        }
+
         var info = document.createElement('div');
         info.className = 'track-info';
 
         var name = document.createElement('div');
         name.className = 'track-name';
-        name.textContent = getDisplayName(entry.filename);
+        name.textContent = getDisplayName(entry.filename, entry.id);
 
         var meta = document.createElement('div');
         meta.className = 'track-meta';
+        var cols = settings.libraryColumns || ['subfolder', 'duration', 'playcount', 'note'];
         var subPath = getSubfolder(entry.relativePath);
         var plays = entry.playCount || 0;
         var metaParts = [];
-        if (subPath && currentAvailFilter !== 'folders') metaParts.push(subPath);
-        metaParts.push(formatDuration(entry.duration));
-        if (plays > 0) metaParts.push(plays + (plays === 1 ? ' play' : ' plays'));
+        var entryMeta = trackMetadata[entry.id];
+        if (cols.indexOf('artist') !== -1 && entryMeta && entryMeta.artist) {
+            metaParts.push(entryMeta.artist);
+        }
+        if (cols.indexOf('subfolder') !== -1 && subPath && currentAvailFilter !== 'folders') metaParts.push(subPath);
+        if (cols.indexOf('duration') !== -1) metaParts.push(formatDuration(entry.duration));
+        if (cols.indexOf('playcount') !== -1 && plays > 0) metaParts.push(plays + (plays === 1 ? ' play' : ' plays'));
+        if (cols.indexOf('bpm') !== -1 && entryMeta && entryMeta.bpm) metaParts.push(entryMeta.bpm + ' BPM');
         var note = trackNotes[entry.id];
-        if (note) metaParts.push('\u270E ' + note);
+        if (cols.indexOf('note') !== -1 && note) metaParts.push('\u270E ' + note);
         meta.textContent = metaParts.join(' \u00B7 ');
 
         info.appendChild(name);
@@ -530,7 +612,7 @@
             moreBtn.addEventListener('click', function (e) {
                 e.stopPropagation();
                 var isFav = favoriteIds.has(entry.id);
-                AM.openBottomSheet(getDisplayName(entry.filename), [
+                AM.openBottomSheet(getDisplayName(entry.filename, entry.id), [
                     {
                         icon: isFav ? '\u2605' : '\u2606',
                         label: isFav ? 'Unfavorite' : 'Favorite',
@@ -563,6 +645,32 @@
                         }
                     },
                     {
+                        icon: '\u{1F4DD}',
+                        label: 'Edit Metadata',
+                        action: function () {
+                            editMetadata(entry.id, entry.filename);
+                        }
+                    },
+                    {
+                        icon: '\u{1F3F7}',
+                        label: 'Set Tag',
+                        action: function () {
+                            var tagOptions = TAG_COLORS.map(function (t) {
+                                return {
+                                    icon: '\u25CF',
+                                    label: t.label + (trackTags[entry.id] === t.id ? ' \u2713' : ''),
+                                    action: function () { setTag(entry.id, t.id); }
+                                };
+                            });
+                            tagOptions.push({
+                                icon: '\u25CB',
+                                label: 'None',
+                                action: function () { setTag(entry.id, null); }
+                            });
+                            AM.openBottomSheet('Set Tag', tagOptions);
+                        }
+                    },
+                    {
                         icon: '\u2716',
                         label: 'Remove from Library',
                         danger: true,
@@ -577,8 +685,27 @@
             actions.appendChild(moreBtn);
             li.appendChild(actions);
 
+            // Long-press to open context menu
+            var lpTimer = null;
+            var lpTriggered = false;
+            li.addEventListener('touchstart', function (e) {
+                lpTriggered = false;
+                lpTimer = setTimeout(function () {
+                    lpTriggered = true;
+                    if (AM.haptic) AM.haptic(10);
+                    moreBtn.click();
+                }, 500);
+            });
+            li.addEventListener('touchend', function () {
+                if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+            });
+            li.addEventListener('touchmove', function (e) {
+                if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+            });
+
             // Tap to play or select
             li.addEventListener('click', function () {
+                if (lpTriggered) return;
                 if (selectMode) {
                     if (selectedIds.has(entry.id)) {
                         selectedIds.delete(entry.id);
@@ -621,11 +748,17 @@
 
     // --- Remove entry ---
     function removeEntry(entryId) {
+        var removed = libraryEntries.find(function (e) { return e.id === entryId; });
         libraryEntries = libraryEntries.filter(function (e) { return e.id !== entryId; });
         fileMap.delete(entryId);
         storage.saveLibrary(libraryEntries);
         if (AM.queue) AM.queue.removeTrackId(entryId);
         updateLibraryUI();
+        AM.showToast('Removed from library', removed ? function () {
+            libraryEntries.push(removed);
+            storage.saveLibrary(libraryEntries);
+            updateLibraryUI();
+        } : undefined);
     }
 
     // --- Track notes ---
@@ -640,6 +773,39 @@
         }
         storage.saveNotes(trackNotes);
         renderTrackList();
+    }
+
+    // --- Metadata editor ---
+    function editMetadata(entryId, filename) {
+        var current = trackMetadata[entryId] || {};
+        var defaultTitle = getDisplayName(filename);
+        var title = prompt('Track Title:', current.title || defaultTitle);
+        if (title === null) return;
+        var artist = prompt('Artist:', current.artist || '');
+        if (artist === null) return;
+
+        if (title.trim() && title.trim() !== defaultTitle) {
+            if (!trackMetadata[entryId]) trackMetadata[entryId] = {};
+            trackMetadata[entryId].title = title.trim();
+        } else if (trackMetadata[entryId]) {
+            delete trackMetadata[entryId].title;
+        }
+
+        if (artist.trim()) {
+            if (!trackMetadata[entryId]) trackMetadata[entryId] = {};
+            trackMetadata[entryId].artist = artist.trim();
+        } else if (trackMetadata[entryId]) {
+            delete trackMetadata[entryId].artist;
+        }
+
+        // Clean up empty entries
+        if (trackMetadata[entryId] && Object.keys(trackMetadata[entryId]).length === 0) {
+            delete trackMetadata[entryId];
+        }
+
+        storage.saveMetadata(trackMetadata);
+        renderTrackList();
+        AM.showToast('Metadata updated');
     }
 
     // --- Update duration (called by player after decode) ---
@@ -680,7 +846,13 @@
         isAvailable: function (id) {
             return fileMap.has(id);
         },
-        getDisplayName: getDisplayName,
+        getDisplayName: function (filename, entryId) { return getDisplayName(filename, entryId); },
+        getMetadata: function (id) { return trackMetadata[id] || null; },
+        setMetadataField: function (id, key, value) {
+            if (!trackMetadata[id]) trackMetadata[id] = {};
+            trackMetadata[id][key] = value;
+            storage.saveMetadata(trackMetadata);
+        },
         formatDuration: formatDuration,
         getSubfolder: getSubfolder,
         updateDuration: updateDuration,

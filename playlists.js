@@ -314,7 +314,7 @@
             for (var i = 0; i < Math.min(3, pl.trackIds.length); i++) {
                 var entry = library.getEntry(pl.trackIds[i]);
                 if (entry) {
-                    previewNames.push(library.getDisplayName(entry.filename));
+                    previewNames.push(library.getDisplayName(entry.filename, entry.id));
                 }
             }
             previewEl.textContent = previewNames.join(', ');
@@ -405,7 +405,7 @@
             var nameEl = document.createElement('div');
             nameEl.className = 'track-name';
             if (entry) {
-                nameEl.textContent = library.getDisplayName(entry.filename);
+                nameEl.textContent = library.getDisplayName(entry.filename, entry.id);
             } else {
                 nameEl.textContent = 'Removed track';
             }

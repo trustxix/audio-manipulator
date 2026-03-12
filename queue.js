@@ -48,7 +48,7 @@
 
         if (!file || !entry) return;
 
-        var displayName = library.getDisplayName(entry.filename);
+        var displayName = library.getDisplayName(entry.filename, entry.id);
         var subfolder = library.getSubfolder(entry.relativePath);
         var sub = (subfolder ? subfolder + ' \u00B7 ' : '') + library.formatDuration(entry.duration);
 
@@ -93,6 +93,26 @@
             currentIndex = 0;
             playCurrentTrack(true);
         }
+    }
+
+    function playAt(index) {
+        if (index >= 0 && index < trackIds.length) {
+            currentIndex = index;
+            playCurrentTrack(true);
+        }
+    }
+
+    // --- Preload info for gapless ---
+    function getNextTrackInfo() {
+        if (!hasNext()) return null;
+        var nextId = trackIds[currentIndex + 1];
+        var file = library.getFile(nextId);
+        var entry = library.getEntry(nextId);
+        if (!file || !entry) return null;
+        var displayName = library.getDisplayName(entry.filename, entry.id);
+        var subfolder = library.getSubfolder(entry.relativePath);
+        var sub = (subfolder ? subfolder + ' \u00B7 ' : '') + library.formatDuration(entry.duration);
+        return { file: file, trackId: nextId, trackName: displayName, trackSub: sub };
     }
 
     // --- Insert / Append ---
@@ -308,7 +328,7 @@
 
             var nameEl = document.createElement('div');
             nameEl.className = 'track-name';
-            nameEl.textContent = entry ? library.getDisplayName(entry.filename) : 'Unknown';
+            nameEl.textContent = entry ? library.getDisplayName(entry.filename, entry.id) : 'Unknown';
 
             var metaEl = document.createElement('div');
             metaEl.className = 'track-meta';
@@ -384,7 +404,7 @@
 
             var nameEl = document.createElement('div');
             nameEl.className = 'track-name';
-            nameEl.textContent = library.getDisplayName(entry.filename);
+            nameEl.textContent = library.getDisplayName(entry.filename, entry.id);
 
             var metaEl = document.createElement('div');
             metaEl.className = 'track-meta';
@@ -607,6 +627,8 @@
         playNext: playNext,
         playPrev: playPrev,
         playFirst: playFirst,
+        playAt: playAt,
+        getNextTrackInfo: getNextTrackInfo,
         insertNext: insertNext,
         addToEnd: addToEnd,
         removeFromQueue: removeFromQueue,

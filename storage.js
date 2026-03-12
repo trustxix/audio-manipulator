@@ -10,7 +10,9 @@
         notes: 'am-notes',
         savedQueues: 'am-savedQueues',
         playbackPresets: 'am-playbackPresets',
-        cues: 'am-cues'
+        cues: 'am-cues',
+        tags: 'am-tags',
+        metadata: 'am-metadata'
     };
 
     function safeGet(key, fallback) {
@@ -59,6 +61,8 @@
         boostWarning: true,
         eqEnabled: true,
         eqBands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        eqQ: [0, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 0],
+        eqParametric: false,
         monoEnabled: false,
         repeatMode: 'off',
         hapticEnabled: false,
@@ -68,7 +72,19 @@
         outroSkip: 0,
         fadeIn: 0,
         fadeOut: 0,
-        collapsedGroups: []
+        collapsedGroups: [],
+        hiddenGroups: [],
+        theme: 'dark',
+        animatedBg: false,
+        autoLevel: false,
+        crossfade: 0,
+        folderDepth: 0,
+        controlOrder: [],
+        largeTouchTargets: false,
+        reduceMotion: false,
+        highContrast: false,
+        libraryColumns: ['subfolder', 'duration', 'playcount', 'note'],
+        muteBypass: false
     };
 
     window.AM = window.AM || {};
@@ -154,6 +170,22 @@
             return safeSet(KEYS.cues, cues);
         },
 
+        getTags: function () {
+            return safeGet(KEYS.tags, {});
+        },
+
+        saveTags: function (tags) {
+            return safeSet(KEYS.tags, tags);
+        },
+
+        getMetadata: function () {
+            return safeGet(KEYS.metadata, {});
+        },
+
+        saveMetadata: function (meta) {
+            return safeSet(KEYS.metadata, meta);
+        },
+
         clearAll: function () {
             safeRemove(KEYS.library);
             safeRemove(KEYS.playlists);
@@ -163,6 +195,8 @@
             safeRemove(KEYS.savedQueues);
             safeRemove(KEYS.playbackPresets);
             safeRemove(KEYS.cues);
+            safeRemove(KEYS.tags);
+            safeRemove(KEYS.metadata);
         },
 
         getStorageUsed: function () {
