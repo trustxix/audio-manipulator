@@ -156,6 +156,18 @@
         }
     }
 
+    // Pre-warm AudioContext on first user interaction (iOS requirement).
+    // iOS Safari only allows AudioContext creation/resume inside a user gesture.
+    // By creating it on the first tap anywhere in the app, it's already running
+    // by the time the async decode completes later.
+    function warmUpAudioContext() {
+        ensureAudioContext();
+        document.removeEventListener('touchstart', warmUpAudioContext, true);
+        document.removeEventListener('click', warmUpAudioContext, true);
+    }
+    document.addEventListener('touchstart', warmUpAudioContext, true);
+    document.addEventListener('click', warmUpAudioContext, true);
+
     function updateAudioChain() {
         if (!gainNode || !audioCtx) return;
 
@@ -225,34 +237,43 @@
     function startPlayback() {
         if (!audioBuffer || !audioCtx) return;
 
-        sourceNode = audioCtx.createBufferSource();
-        sourceNode.buffer = audioBuffer;
-        currentRate = parseInt(rateSlider.value) / 100;
-        sourceNode.playbackRate.value = currentRate;
-        sourceNode.connect(gainNode);
+        // iOS Safari requires resume() close to the actual .start() call.
+        // The original resume in ensureAudioContext may have been too early
+        // (before async FileReader + decodeAudioData), so resume again here.
+        var resumePromise = (audioCtx.state === 'suspended')
+            ? audioCtx.resume()
+            : Promise.resolve();
 
-        sourceNode.onended = function () {
-            if (isPlaying) {
-                isPlaying = false;
-                bufferOffset = 0;
-                updatePlayIcons(false);
-                seekSlider.value = 0;
-                currentTimeEl.textContent = '0:00';
-                if (animFrameId) cancelAnimationFrame(animFrameId);
+        resumePromise.then(function () {
+            sourceNode = audioCtx.createBufferSource();
+            sourceNode.buffer = audioBuffer;
+            currentRate = parseInt(rateSlider.value) / 100;
+            sourceNode.playbackRate.value = currentRate;
+            sourceNode.connect(gainNode);
 
-                // Auto-advance to next track in queue
-                if (settings.autoplay && AM.queue && AM.queue.hasNext()) {
-                    AM.queue.playNext();
+            sourceNode.onended = function () {
+                if (isPlaying) {
+                    isPlaying = false;
+                    bufferOffset = 0;
+                    updatePlayIcons(false);
+                    seekSlider.value = 0;
+                    currentTimeEl.textContent = '0:00';
+                    if (animFrameId) cancelAnimationFrame(animFrameId);
+
+                    // Auto-advance to next track in queue
+                    if (settings.autoplay && AM.queue && AM.queue.hasNext()) {
+                        AM.queue.playNext();
+                    }
                 }
-            }
-        };
+            };
 
-        sourceNode.start(0, bufferOffset);
-        segmentStartTime = audioCtx.currentTime;
-        isPlaying = true;
-        updatePlayIcons(true);
-        showMiniPlayer();
-        updateSeekUI();
+            sourceNode.start(0, bufferOffset);
+            segmentStartTime = audioCtx.currentTime;
+            isPlaying = true;
+            updatePlayIcons(true);
+            showMiniPlayer();
+            updateSeekUI();
+        });
     }
 
     function pausePlayback() {
