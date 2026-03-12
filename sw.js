@@ -1,7 +1,14 @@
-const CACHE_NAME = 'audio-manipulator-v10';
+const CACHE_NAME = 'audio-manipulator-v11';
 const ASSETS = [
     './',
     './index.html',
+    './styles.css',
+    './storage.js',
+    './player.js',
+    './library.js',
+    './queue.js',
+    './playlists.js',
+    './settings.js',
     './manifest.json',
     './icons/icon-192.png',
     './icons/icon-512.png'
