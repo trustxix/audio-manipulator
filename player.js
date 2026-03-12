@@ -95,6 +95,32 @@
     // --- Build EQ sliders ---
     var eqSliderEls = [];
 
+    // EQ tooltip
+    var eqTooltip = document.createElement('div');
+    eqTooltip.className = 'eq-tooltip';
+    eqTooltip.style.display = 'none';
+    document.body.appendChild(eqTooltip);
+
+    var eqTooltipTimer = null;
+
+    function showEqTooltip(slider, freq, val) {
+        var sign = val > 0 ? '+' : '';
+        eqTooltip.textContent = formatFreq(freq) + ': ' + sign + val.toFixed(1) + ' dB';
+        eqTooltip.style.display = '';
+
+        var rect = slider.getBoundingClientRect();
+        eqTooltip.style.left = (rect.left + rect.width / 2) + 'px';
+        eqTooltip.style.top = (rect.top - 28) + 'px';
+
+        clearTimeout(eqTooltipTimer);
+    }
+
+    function hideEqTooltip() {
+        eqTooltipTimer = setTimeout(function () {
+            eqTooltip.style.display = 'none';
+        }, 800);
+    }
+
     EQ_FREQUENCIES.forEach(function (freq, i) {
         var band = document.createElement('div');
         band.className = 'eq-band';
@@ -113,8 +139,12 @@
                 eqFilters[i].gain.value = val;
             }
             updateFreqLabelColors();
+            showEqTooltip(slider, freq, val);
             AM.storage.saveSettings(settings);
         });
+
+        slider.addEventListener('change', hideEqTooltip);
+        slider.addEventListener('touchend', hideEqTooltip);
 
         band.appendChild(slider);
         eqSlidersContainer.appendChild(band);
