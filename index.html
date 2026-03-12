@@ -265,7 +265,7 @@
                     </div>
                     <div class="setting-description">Clears settings, library, and all playlists.</div>
                 </div>
-                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v50</div>
+                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v51</div>
             </div>
         </div>
 
@@ -421,6 +421,23 @@
                 <div class="range-labels">
                     <span>0%</span>
                     <span>200%</span>
+                </div>
+            </div>
+
+            <div class="control-group" data-group="filters">
+                <div class="control-header">
+                    <span class="collapse-chevron">&#9660;</span>
+                    <span class="control-label">Filters <button class="info-btn" data-info-title="LP/HP Filters" data-info="Low-pass cuts frequencies above the cutoff (muffles highs). High-pass cuts frequencies below the cutoff (thins out bass). Sweep the sliders for DJ-style filter effects.">i</button></span>
+                </div>
+                <div class="filter-row">
+                    <span class="filter-label">LP</span>
+                    <input type="range" id="lpFilterSlider" min="0" max="1000" step="1" value="1000">
+                    <span class="filter-freq" id="lpFilterFreq">20k</span>
+                </div>
+                <div class="filter-row">
+                    <span class="filter-label">HP</span>
+                    <input type="range" id="hpFilterSlider" min="0" max="1000" step="1" value="0">
+                    <span class="filter-freq" id="hpFilterFreq">20</span>
                 </div>
             </div>
 

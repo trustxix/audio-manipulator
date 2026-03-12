@@ -44,6 +44,8 @@
     var abLoopState = 0;         // 0=off, 1=A set, 2=looping
     var isNormalized = false;
     var preNormalizeVolume = 0;
+    var lpFilterNode = null;       // BiquadFilterNode lowpass
+    var hpFilterNode = null;       // BiquadFilterNode highpass
     var stereoWidthNode = null;    // ScriptProcessorNode for M/S stereo width
     var stereoWidthValue = 1.0;    // 0=mono, 1=normal, 2=extra wide
     var analyserNode = null;      // AnalyserNode for clip detection
@@ -90,6 +92,10 @@
     var panValueEl = document.getElementById('panValue');
     var stereoWidthSlider = document.getElementById('stereoWidthSlider');
     var stereoWidthValueEl = document.getElementById('stereoWidthValue');
+    var lpFilterSlider = document.getElementById('lpFilterSlider');
+    var lpFilterFreqEl = document.getElementById('lpFilterFreq');
+    var hpFilterSlider = document.getElementById('hpFilterSlider');
+    var hpFilterFreqEl = document.getElementById('hpFilterFreq');
 
     // Mini player DOM
     var miniPlayer = document.getElementById('miniPlayer');
@@ -214,6 +220,17 @@
             // Mono downmix node — forces output to 1 channel
             monoNode = audioCtx.createChannelMerger(1);
 
+            // LP/HP sweep filters
+            lpFilterNode = audioCtx.createBiquadFilter();
+            lpFilterNode.type = 'lowpass';
+            lpFilterNode.frequency.value = 20000;
+            lpFilterNode.Q.value = 0.707;
+
+            hpFilterNode = audioCtx.createBiquadFilter();
+            hpFilterNode.type = 'highpass';
+            hpFilterNode.frequency.value = 20;
+            hpFilterNode.Q.value = 0.707;
+
             // Stereo width processor (Mid/Side)
             stereoWidthNode = audioCtx.createScriptProcessor(4096, 2, 2);
             stereoWidthNode.onaudioprocess = function (e) {
@@ -280,6 +297,8 @@
         gainNode.disconnect();
         if (pannerNode) pannerNode.disconnect();
         eqFilters.forEach(function (f) { f.disconnect(); });
+        if (lpFilterNode) lpFilterNode.disconnect();
+        if (hpFilterNode) hpFilterNode.disconnect();
         if (limiterNode) limiterNode.disconnect();
         if (monoNode) monoNode.disconnect();
         if (stereoWidthNode) stereoWidthNode.disconnect();
@@ -303,6 +322,16 @@
                 eqFilters[i].connect(eqFilters[i + 1]);
             }
             lastNode = eqFilters[eqFilters.length - 1];
+        }
+
+        // LP/HP sweep filters (only when active)
+        if (lpFilterNode && lpFilterNode.frequency.value < 19999) {
+            lastNode.connect(lpFilterNode);
+            lastNode = lpFilterNode;
+        }
+        if (hpFilterNode && hpFilterNode.frequency.value > 21) {
+            lastNode.connect(hpFilterNode);
+            lastNode = hpFilterNode;
         }
 
         if (settings.limiterEnabled && limiterNode) {
@@ -888,6 +917,32 @@
         stereoWidthValueEl.textContent = pct + '%';
         settings.stereoWidth = stereoWidthValue;
         AM.storage.saveSettings(settings);
+        updateAudioChain();
+    });
+
+    // LP/HP filter sweeps
+    function sliderToFreq(val) {
+        // Logarithmic: 0→20Hz, 1000→20000Hz
+        return 20 * Math.pow(1000, val / 1000);
+    }
+
+    function formatFilterFreq(hz) {
+        if (hz >= 10000) return (hz / 1000).toFixed(0) + 'k';
+        if (hz >= 1000) return (hz / 1000).toFixed(1) + 'k';
+        return Math.round(hz) + '';
+    }
+
+    lpFilterSlider.addEventListener('input', function () {
+        var freq = sliderToFreq(parseInt(lpFilterSlider.value));
+        lpFilterFreqEl.textContent = formatFilterFreq(freq);
+        if (lpFilterNode) lpFilterNode.frequency.value = freq;
+        updateAudioChain();
+    });
+
+    hpFilterSlider.addEventListener('input', function () {
+        var freq = sliderToFreq(parseInt(hpFilterSlider.value));
+        hpFilterFreqEl.textContent = formatFilterFreq(freq);
+        if (hpFilterNode) hpFilterNode.frequency.value = freq;
         updateAudioChain();
     });
 
