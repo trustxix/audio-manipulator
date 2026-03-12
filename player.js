@@ -253,6 +253,17 @@
         miniPlayerTime.textContent = formatTime(pos);
         miniPlayerProgress.style.width = ((pos / audioBuffer.duration) * 100) + '%';
 
+        // Update lock screen progress bar
+        if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
+            try {
+                navigator.mediaSession.setPositionState({
+                    duration: audioBuffer.duration,
+                    playbackRate: currentRate,
+                    position: Math.min(pos, audioBuffer.duration)
+                });
+            } catch (e) {}
+        }
+
         if (isPlaying) {
             animFrameId = requestAnimationFrame(updateSeekUI);
         }
