@@ -199,6 +199,19 @@
                 </div>
 
                 <div class="settings-section">
+                    <div class="settings-section-title">Backup <button class="info-btn" data-info-title="Backup" data-info="Export all your data (library, playlists, settings, favorites, notes) as a JSON file. Import restores everything from a previous export. Audio files are NOT included — reload your folder after importing.">i</button></div>
+                    <div class="setting-row">
+                        <span class="setting-label">Export Data</span>
+                        <button class="load-folder-btn" id="exportDataBtn">Export</button>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Import Data</span>
+                        <button class="load-folder-btn" id="importDataBtn">Import</button>
+                    </div>
+                    <input type="file" id="importFileInput" accept=".json" style="display:none;">
+                </div>
+
+                <div class="settings-section">
                     <div class="settings-section-title">Reset</div>
                     <div class="setting-row">
                         <span class="setting-label">Reset to Defaults</span>
@@ -211,7 +224,7 @@
                     </div>
                     <div class="setting-description">Clears settings, library, and all playlists.</div>
                 </div>
-                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v40</div>
+                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v41</div>
             </div>
         </div>
 

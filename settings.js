@@ -109,6 +109,70 @@
         AM.showToast('Library cleared');
     });
 
+    // --- Export/Import ---
+    var exportDataBtn = document.getElementById('exportDataBtn');
+    var importDataBtn = document.getElementById('importDataBtn');
+    var importFileInput = document.getElementById('importFileInput');
+
+    exportDataBtn.addEventListener('click', function () {
+        var data = {
+            version: 1,
+            exportDate: new Date().toISOString(),
+            library: storage.getLibrary(),
+            playlists: storage.getPlaylists(),
+            settings: storage.getSettings(),
+            favorites: storage.getFavorites(),
+            notes: storage.getNotes()
+        };
+        var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'audio-manipulator-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+        a.click();
+        URL.revokeObjectURL(url);
+        AM.showToast('Data exported');
+    });
+
+    importDataBtn.addEventListener('click', function () {
+        importFileInput.click();
+    });
+
+    importFileInput.addEventListener('change', function (e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function (ev) {
+            try {
+                var data = JSON.parse(ev.target.result);
+                if (!data.library || !data.settings) {
+                    AM.showToast('Invalid backup file');
+                    return;
+                }
+                if (!confirm('Import will replace all current data. Continue?')) return;
+                storage.saveLibrary(data.library || []);
+                storage.savePlaylists(data.playlists || []);
+                storage.saveSettings(data.settings);
+                storage.saveFavorites(data.favorites || []);
+                storage.saveNotes(data.notes || {});
+
+                // Reload state
+                settings = storage.getSettings();
+                player.setSettings(settings);
+                applySettingsToUI();
+                library.refresh();
+                if (AM.playlists) AM.playlists.refresh();
+                if (AM.queue) AM.queue.refresh();
+                updateStats();
+                AM.showToast('Data imported — reload folder to reconnect files');
+            } catch (err) {
+                AM.showToast('Error reading backup file');
+            }
+        };
+        reader.readAsText(file);
+        importFileInput.value = '';
+    });
+
     // --- Stats ---
     function updateStats() {
         var entries = library.getEntries();
