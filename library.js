@@ -311,141 +311,186 @@
         }
     }
 
+    // --- Folder view state ---
+    var expandedFolders = new Set();
+
     function renderTrackList() {
         var filtered = getFilteredEntries();
         trackCountLabel.textContent = filtered.length + ' of ' + libraryEntries.length + ' tracks';
 
         libraryTrackList.innerHTML = '';
 
+        // Folder grouped view
+        if (currentAvailFilter === 'folders') {
+            var groups = {};
+            filtered.forEach(function (entry) {
+                var folder = getSubfolder(entry.relativePath) || '(Root)';
+                if (!groups[folder]) groups[folder] = [];
+                groups[folder].push(entry);
+            });
+            var folderNames = Object.keys(groups).sort();
+            folderNames.forEach(function (folder) {
+                var tracks = groups[folder];
+                var isExpanded = expandedFolders.has(folder);
+
+                // Folder header
+                var header = document.createElement('li');
+                header.className = 'folder-header' + (isExpanded ? ' expanded' : '');
+                header.innerHTML = '<span class="folder-chevron">' + (isExpanded ? '\u25BC' : '\u25B6') + '</span> ' +
+                    '<span class="folder-name">' + folder + '</span>' +
+                    '<span class="folder-count">' + tracks.length + '</span>';
+                header.addEventListener('click', function () {
+                    if (expandedFolders.has(folder)) {
+                        expandedFolders.delete(folder);
+                    } else {
+                        expandedFolders.add(folder);
+                    }
+                    renderTrackList();
+                });
+                libraryTrackList.appendChild(header);
+
+                if (isExpanded) {
+                    tracks.forEach(function (entry) {
+                        renderTrackRow(entry);
+                    });
+                }
+            });
+            return;
+        }
+
         filtered.forEach(function (entry) {
-            var available = fileMap.has(entry.id);
-            var li = document.createElement('li');
-            li.className = 'track-row' + (available ? '' : ' unavailable');
+            renderTrackRow(entry);
+        });
+    }
 
-            var currentId = AM.player.getCurrentTrackId();
-            if (entry.id === currentId) {
-                li.classList.add('now-playing-row');
-            }
+    function renderTrackRow(entry) {
+        var available = fileMap.has(entry.id);
+        var li = document.createElement('li');
+        li.className = 'track-row' + (available ? '' : ' unavailable');
 
-            var info = document.createElement('div');
-            info.className = 'track-info';
+        var currentId = AM.player.getCurrentTrackId();
+        if (entry.id === currentId) {
+            li.classList.add('now-playing-row');
+        }
 
-            var name = document.createElement('div');
-            name.className = 'track-name';
-            name.textContent = getDisplayName(entry.filename);
+        var info = document.createElement('div');
+        info.className = 'track-info';
 
-            var meta = document.createElement('div');
-            meta.className = 'track-meta';
-            var subPath = getSubfolder(entry.relativePath);
-            var plays = entry.playCount || 0;
-            var metaParts = [];
-            if (subPath) metaParts.push(subPath);
-            metaParts.push(formatDuration(entry.duration));
-            if (plays > 0) metaParts.push(plays + (plays === 1 ? ' play' : ' plays'));
-            var note = trackNotes[entry.id];
-            if (note) metaParts.push('\u270E ' + note);
-            meta.textContent = metaParts.join(' \u00B7 ');
+        var name = document.createElement('div');
+        name.className = 'track-name';
+        name.textContent = getDisplayName(entry.filename);
 
-            info.appendChild(name);
-            info.appendChild(meta);
+        var meta = document.createElement('div');
+        meta.className = 'track-meta';
+        var subPath = getSubfolder(entry.relativePath);
+        var plays = entry.playCount || 0;
+        var metaParts = [];
+        if (subPath && currentAvailFilter !== 'folders') metaParts.push(subPath);
+        metaParts.push(formatDuration(entry.duration));
+        if (plays > 0) metaParts.push(plays + (plays === 1 ? ' play' : ' plays'));
+        var note = trackNotes[entry.id];
+        if (note) metaParts.push('\u270E ' + note);
+        meta.textContent = metaParts.join(' \u00B7 ');
 
-            li.appendChild(info);
+        info.appendChild(name);
+        info.appendChild(meta);
 
-            // Favorite star (always visible)
-            var favBtn = document.createElement('button');
-            favBtn.className = 'fav-btn' + (favoriteIds.has(entry.id) ? ' favorited' : '');
-            favBtn.innerHTML = favoriteIds.has(entry.id) ? '&#9733;' : '&#9734;';
-            favBtn.addEventListener('click', function (e) {
+        li.appendChild(info);
+
+        // Favorite star (always visible)
+        var favBtn = document.createElement('button');
+        favBtn.className = 'fav-btn' + (favoriteIds.has(entry.id) ? ' favorited' : '');
+        favBtn.innerHTML = favoriteIds.has(entry.id) ? '&#9733;' : '&#9734;';
+        favBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            toggleFavorite(entry.id);
+        });
+
+        if (available) {
+            var actions = document.createElement('div');
+            actions.className = 'track-actions';
+
+            actions.appendChild(favBtn);
+
+            // Add to playlist button
+            var addBtn = document.createElement('button');
+            addBtn.className = 'track-action-btn';
+            addBtn.innerHTML = '+';
+            addBtn.addEventListener('click', function (e) {
                 e.stopPropagation();
-                toggleFavorite(entry.id);
+                AM.openPlaylistPicker(entry.id);
             });
 
-            if (available) {
-                var actions = document.createElement('div');
-                actions.className = 'track-actions';
-
-                actions.appendChild(favBtn);
-
-                // Add to playlist button
-                var addBtn = document.createElement('button');
-                addBtn.className = 'track-action-btn';
-                addBtn.innerHTML = '+';
-                addBtn.addEventListener('click', function (e) {
-                    e.stopPropagation();
-                    AM.openPlaylistPicker(entry.id);
-                });
-
-                // More button
-                var moreBtn = document.createElement('button');
-                moreBtn.className = 'track-action-btn';
-                moreBtn.innerHTML = '\u22EF';
-                moreBtn.addEventListener('click', function (e) {
-                    e.stopPropagation();
-                    var isFav = favoriteIds.has(entry.id);
-                    AM.openBottomSheet(getDisplayName(entry.filename), [
-                        {
-                            icon: isFav ? '\u2605' : '\u2606',
-                            label: isFav ? 'Unfavorite' : 'Favorite',
-                            action: function () {
-                                toggleFavorite(entry.id);
-                                AM.showToast(favoriteIds.has(entry.id) ? 'Added to favorites' : 'Removed from favorites');
-                            }
-                        },
-                        {
-                            icon: '\u23ED',
-                            label: 'Play Next',
-                            action: function () {
-                                if (AM.queue) AM.queue.insertNext(entry.id);
-                                AM.showToast('Playing next');
-                            }
-                        },
-                        {
-                            icon: '\u2795',
-                            label: 'Add to Queue',
-                            action: function () {
-                                if (AM.queue) AM.queue.addToEnd(entry.id);
-                                AM.showToast('Added to queue');
-                            }
-                        },
-                        {
-                            icon: '\u270E',
-                            label: 'Edit Note',
-                            action: function () {
-                                editNote(entry.id);
-                            }
-                        },
-                        {
-                            icon: '\u2716',
-                            label: 'Remove from Library',
-                            danger: true,
-                            action: function () {
-                                removeEntry(entry.id);
-                            }
+            // More button
+            var moreBtn = document.createElement('button');
+            moreBtn.className = 'track-action-btn';
+            moreBtn.innerHTML = '\u22EF';
+            moreBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var isFav = favoriteIds.has(entry.id);
+                AM.openBottomSheet(getDisplayName(entry.filename), [
+                    {
+                        icon: isFav ? '\u2605' : '\u2606',
+                        label: isFav ? 'Unfavorite' : 'Favorite',
+                        action: function () {
+                            toggleFavorite(entry.id);
+                            AM.showToast(favoriteIds.has(entry.id) ? 'Added to favorites' : 'Removed from favorites');
                         }
-                    ]);
-                });
+                    },
+                    {
+                        icon: '\u23ED',
+                        label: 'Play Next',
+                        action: function () {
+                            if (AM.queue) AM.queue.insertNext(entry.id);
+                            AM.showToast('Playing next');
+                        }
+                    },
+                    {
+                        icon: '\u2795',
+                        label: 'Add to Queue',
+                        action: function () {
+                            if (AM.queue) AM.queue.addToEnd(entry.id);
+                            AM.showToast('Added to queue');
+                        }
+                    },
+                    {
+                        icon: '\u270E',
+                        label: 'Edit Note',
+                        action: function () {
+                            editNote(entry.id);
+                        }
+                    },
+                    {
+                        icon: '\u2716',
+                        label: 'Remove from Library',
+                        danger: true,
+                        action: function () {
+                            removeEntry(entry.id);
+                        }
+                    }
+                ]);
+            });
 
-                actions.appendChild(addBtn);
-                actions.appendChild(moreBtn);
-                li.appendChild(actions);
+            actions.appendChild(addBtn);
+            actions.appendChild(moreBtn);
+            li.appendChild(actions);
 
-                // Tap to play
-                li.addEventListener('click', function () {
-                    playFromLibrary(entry.id);
-                });
-            } else {
-                var acts = document.createElement('div');
-                acts.className = 'track-actions';
-                acts.appendChild(favBtn);
-                var badge = document.createElement('span');
-                badge.className = 'unavailable-label';
-                badge.textContent = 'unavailable';
-                acts.appendChild(badge);
-                li.appendChild(acts);
-            }
+            // Tap to play
+            li.addEventListener('click', function () {
+                playFromLibrary(entry.id);
+            });
+        } else {
+            var acts = document.createElement('div');
+            acts.className = 'track-actions';
+            acts.appendChild(favBtn);
+            var badge = document.createElement('span');
+            badge.className = 'unavailable-label';
+            badge.textContent = 'unavailable';
+            acts.appendChild(badge);
+            li.appendChild(acts);
+        }
 
-            libraryTrackList.appendChild(li);
-        });
+        libraryTrackList.appendChild(li);
     }
 
     // --- Play from library ---

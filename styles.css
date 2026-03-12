@@ -802,6 +802,45 @@ input[type="range"]::-webkit-slider-thumb {
     list-style: none;
 }
 
+/* Folder view headers */
+.folder-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 4px;
+    border-bottom: 1px solid #1a1a1a;
+    cursor: pointer;
+    gap: 8px;
+    background: #111;
+    border-radius: 4px;
+    margin-bottom: 2px;
+}
+
+.folder-header:active {
+    background: #1a1a1a;
+}
+
+.folder-chevron {
+    font-size: 10px;
+    color: #4a9eff;
+    flex-shrink: 0;
+    width: 14px;
+}
+
+.folder-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e0e0e0;
+    flex: 1;
+}
+
+.folder-count {
+    font-size: 12px;
+    color: #555;
+    background: #1a1a1a;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
 .track-row {
     display: flex;
     align-items: center;
