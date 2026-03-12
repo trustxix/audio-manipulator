@@ -207,24 +207,18 @@
 
         ensureAudioContext();
 
-        // Force iOS into "playback" audio session by playing a real (silent)
-        // WAV through a standard <audio> element. This switches the session
-        // category from "ambient" (muted by hardware switch) to "playback"
-        // (plays like a music app, ignores mute switch).
+        // Force iOS into "playback" audio session by looping a real (silent)
+        // WAV through a standard <audio> element. iOS reverts to "ambient"
+        // (muted by hardware switch) when no <audio> element is playing, so
+        // we keep it looping forever. It's inaudible silence — zero CPU cost.
         try {
             var blob = createSilentWavBlob();
             var url = URL.createObjectURL(blob);
             var unlock = new Audio(url);
             unlock.setAttribute('playsinline', '');
-            unlock.play().then(function () {
-                // Let it play briefly, then clean up
-                setTimeout(function () {
-                    unlock.pause();
-                    unlock.remove();
-                    URL.revokeObjectURL(url);
-                }, 200);
-            }).catch(function () {
-                URL.revokeObjectURL(url);
+            unlock.loop = true;
+            unlock.play().catch(function () {
+                // Ignore — not all browsers need this
             });
         } catch (e) {
             // Non-critical — mute switch may silence audio on older iOS
