@@ -14,11 +14,20 @@
     var unshuffledIds = []; // original order before shuffle
     var unshuffledIndex = -1;
 
+    // --- History ---
+    var playHistory = []; // array of entry IDs, most recent first
+    var MAX_HISTORY = 50;
+    var historyExpanded = false;
+
     // --- DOM refs ---
     var queueSource = document.getElementById('queueSource');
     var queueEmpty = document.getElementById('queueEmpty');
     var queueTrackList = document.getElementById('queueTrackList');
     var clearQueueBtn = document.getElementById('clearQueueBtn');
+    var historySection = document.getElementById('historySection');
+    var historyTrackList = document.getElementById('historyTrackList');
+    var historyToggle = document.getElementById('historyToggle');
+    var historyChevron = document.getElementById('historyChevron');
 
     // --- Set queue and start playback ---
     function setQueue(ids, startIndex, queueSource) {
@@ -44,6 +53,11 @@
         var sub = (subfolder ? subfolder + ' \u00B7 ' : '') + library.formatDuration(entry.duration);
 
         library.markPlayed(entryId);
+        // Add to history (avoid consecutive duplicates)
+        if (playHistory.length === 0 || playHistory[0] !== entryId) {
+            playHistory.unshift(entryId);
+            if (playHistory.length > MAX_HISTORY) playHistory.pop();
+        }
         player.loadTrack(file, entryId, displayName, sub, autoplay);
         player.updateNavButtons();
         renderQueue();
@@ -343,6 +357,68 @@
             queueTrackList.appendChild(li);
         });
     }
+
+    // --- History UI ---
+    historyToggle.addEventListener('click', function () {
+        historyExpanded = !historyExpanded;
+        historyChevron.classList.toggle('open', historyExpanded);
+        historyTrackList.style.display = historyExpanded ? '' : 'none';
+        if (historyExpanded) renderHistory();
+    });
+
+    function renderHistory() {
+        historyTrackList.innerHTML = '';
+        if (playHistory.length === 0) return;
+
+        historySection.style.display = '';
+
+        playHistory.forEach(function (entryId) {
+            var entry = library.getEntry(entryId);
+            if (!entry) return;
+
+            var li = document.createElement('li');
+            li.className = 'track-row' + (library.isAvailable(entryId) ? '' : ' unavailable');
+
+            var info = document.createElement('div');
+            info.className = 'track-info';
+
+            var nameEl = document.createElement('div');
+            nameEl.className = 'track-name';
+            nameEl.textContent = library.getDisplayName(entry.filename);
+
+            var metaEl = document.createElement('div');
+            metaEl.className = 'track-meta';
+            var subPath = library.getSubfolder(entry.relativePath);
+            metaEl.textContent = (subPath ? subPath + ' \u00B7 ' : '') + library.formatDuration(entry.duration);
+
+            info.appendChild(nameEl);
+            info.appendChild(metaEl);
+            li.appendChild(info);
+
+            if (library.isAvailable(entryId)) {
+                li.addEventListener('click', function () {
+                    // Play this track by adding to queue
+                    insertNext(entryId);
+                    playNext();
+                });
+            }
+
+            historyTrackList.appendChild(li);
+        });
+    }
+
+    // Update history section visibility in renderQueue
+    var origRenderQueue = renderQueue;
+    renderQueue = function () {
+        origRenderQueue();
+        if (playHistory.length > 0) {
+            historySection.style.display = '';
+            historyTrackList.style.display = historyExpanded ? '' : 'none';
+            if (historyExpanded) renderHistory();
+        } else {
+            historySection.style.display = 'none';
+        }
+    };
 
     // --- Shuffle ---
     var shuffleBtn = document.getElementById('shuffleBtn');
