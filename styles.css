@@ -200,6 +200,31 @@ body {
     letter-spacing: 1px;
 }
 
+.sleep-timer-btn {
+    position: absolute;
+    right: 16px;
+    background: none;
+    border: 1px solid #333;
+    color: #888;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 16px;
+}
+
+.sleep-timer-btn.active {
+    color: #4a9eff;
+    border-color: #4a9eff;
+}
+
+.sleep-timer-display {
+    text-align: center;
+    color: #4a9eff;
+    font-size: 13px;
+    padding: 4px 0 0;
+    letter-spacing: 0.5px;
+}
+
 .np-body {
     max-width: 428px;
     margin: 0 auto;

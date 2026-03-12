@@ -210,7 +210,7 @@
                     </div>
                     <div class="setting-description">Clears settings, library, and all playlists.</div>
                 </div>
-                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v31</div>
+                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v32</div>
             </div>
         </div>
 
@@ -252,7 +252,9 @@
         <div class="np-header">
             <button class="np-dismiss-btn" id="npDismissBtn">&#8744; Done</button>
             <span class="np-header-title">Now Playing</span>
+            <button class="sleep-timer-btn" id="sleepTimerBtn" title="Sleep Timer">&#9790;</button>
         </div>
+        <div class="sleep-timer-display" id="sleepTimerDisplay" style="display:none;"></div>
         <div class="np-body">
             <div class="np-track-info">
                 <div class="np-track-name" id="npTrackName">No track loaded</div>
@@ -548,6 +550,68 @@
             });
             popup.addEventListener('click', function (e) {
                 if (e.target === popup) popup.classList.remove('visible');
+            });
+        })();
+
+        // Sleep timer
+        (function () {
+            var timerBtn = document.getElementById('sleepTimerBtn');
+            var timerDisplay = document.getElementById('sleepTimerDisplay');
+            var remaining = 0; // seconds remaining
+            var intervalId = null;
+
+            function formatCountdown(sec) {
+                var h = Math.floor(sec / 3600);
+                var m = Math.floor((sec % 3600) / 60);
+                var s = sec % 60;
+                if (h > 0) return h + ':' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+                return m + ':' + (s < 10 ? '0' : '') + s;
+            }
+
+            function startTimer(minutes) {
+                clearTimer();
+                remaining = minutes * 60;
+                timerDisplay.style.display = '';
+                timerDisplay.textContent = formatCountdown(remaining);
+                timerBtn.classList.add('active');
+                intervalId = setInterval(function () {
+                    remaining--;
+                    if (remaining <= 0) {
+                        clearTimer();
+                        if (window.AM.player.isPlaying()) {
+                            window.AM.player.pausePlayback();
+                        }
+                        window.AM.showToast('Sleep timer ended');
+                    } else {
+                        timerDisplay.textContent = formatCountdown(remaining);
+                    }
+                }, 1000);
+            }
+
+            function clearTimer() {
+                if (intervalId) clearInterval(intervalId);
+                intervalId = null;
+                remaining = 0;
+                timerDisplay.style.display = 'none';
+                timerBtn.classList.remove('active');
+            }
+
+            timerBtn.addEventListener('click', function () {
+                var options = [
+                    { icon: '15', label: '15 minutes', action: function () { startTimer(15); } },
+                    { icon: '30', label: '30 minutes', action: function () { startTimer(30); } },
+                    { icon: '45', label: '45 minutes', action: function () { startTimer(45); } },
+                    { icon: '60', label: '1 hour', action: function () { startTimer(60); } },
+                    { icon: '90', label: '1.5 hours', action: function () { startTimer(90); } },
+                    { icon: '120', label: '2 hours', action: function () { startTimer(120); } }
+                ];
+                if (intervalId) {
+                    options.unshift({
+                        icon: '\u2716', label: 'Cancel Timer (' + formatCountdown(remaining) + ' left)',
+                        danger: true, action: function () { clearTimer(); window.AM.showToast('Sleep timer cancelled'); }
+                    });
+                }
+                window.AM.openBottomSheet('Sleep Timer', options);
             });
         })();
 
