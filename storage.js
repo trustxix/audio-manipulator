@@ -61,6 +61,7 @@
         repeatMode: 'off',
         hapticEnabled: false,
         panValue: 0,
+        stereoWidth: 1.0,
         collapsedGroups: []
     };
 

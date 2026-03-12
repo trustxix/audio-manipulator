@@ -44,6 +44,8 @@
     var abLoopState = 0;         // 0=off, 1=A set, 2=looping
     var isNormalized = false;
     var preNormalizeVolume = 0;
+    var stereoWidthNode = null;    // ScriptProcessorNode for M/S stereo width
+    var stereoWidthValue = 1.0;    // 0=mono, 1=normal, 2=extra wide
     var analyserNode = null;      // AnalyserNode for clip detection
     var analyserData = null;      // Float32Array for time-domain data
     var clipIndicatorEl = null;
@@ -86,6 +88,8 @@
     var eqResetBtn = document.getElementById('eqReset');
     var panSlider = document.getElementById('panSlider');
     var panValueEl = document.getElementById('panValue');
+    var stereoWidthSlider = document.getElementById('stereoWidthSlider');
+    var stereoWidthValueEl = document.getElementById('stereoWidthValue');
 
     // Mini player DOM
     var miniPlayer = document.getElementById('miniPlayer');
@@ -210,6 +214,22 @@
             // Mono downmix node — forces output to 1 channel
             monoNode = audioCtx.createChannelMerger(1);
 
+            // Stereo width processor (Mid/Side)
+            stereoWidthNode = audioCtx.createScriptProcessor(4096, 2, 2);
+            stereoWidthNode.onaudioprocess = function (e) {
+                var inputL = e.inputBuffer.getChannelData(0);
+                var inputR = e.inputBuffer.getChannelData(1);
+                var outputL = e.outputBuffer.getChannelData(0);
+                var outputR = e.outputBuffer.getChannelData(1);
+                var w = stereoWidthValue;
+                for (var s = 0; s < inputL.length; s++) {
+                    var mid = (inputL[s] + inputR[s]) * 0.5;
+                    var side = (inputL[s] - inputR[s]) * 0.5;
+                    outputL[s] = mid + side * w;
+                    outputR[s] = mid - side * w;
+                }
+            };
+
             // Analyser for clipping detection
             analyserNode = audioCtx.createAnalyser();
             analyserNode.fftSize = 2048;
@@ -262,6 +282,7 @@
         eqFilters.forEach(function (f) { f.disconnect(); });
         if (limiterNode) limiterNode.disconnect();
         if (monoNode) monoNode.disconnect();
+        if (stereoWidthNode) stereoWidthNode.disconnect();
         if (analyserNode) analyserNode.disconnect();
 
         // Use mediaStreamDest if available (iOS mute-switch bypass), else fallback
@@ -288,6 +309,12 @@
             limiterNode.threshold.value = settings.limiterCeiling;
             lastNode.connect(limiterNode);
             lastNode = limiterNode;
+        }
+
+        // Stereo width (only when not 100% / 1.0)
+        if (stereoWidthNode && stereoWidthValue !== 1.0) {
+            lastNode.connect(stereoWidthNode);
+            lastNode = stereoWidthNode;
         }
 
         if (settings.monoEnabled && monoNode) {
@@ -815,6 +842,20 @@
             pannerNode.pan.value = floatVal;
         }
         AM.storage.saveSettings(settings);
+    });
+
+    // Stereo width
+    stereoWidthSlider.value = Math.round((settings.stereoWidth || 1.0) * 100);
+    stereoWidthValue = settings.stereoWidth || 1.0;
+    stereoWidthValueEl.textContent = Math.round(stereoWidthValue * 100) + '%';
+
+    stereoWidthSlider.addEventListener('input', function () {
+        var pct = parseInt(stereoWidthSlider.value);
+        stereoWidthValue = pct / 100;
+        stereoWidthValueEl.textContent = pct + '%';
+        settings.stereoWidth = stereoWidthValue;
+        AM.storage.saveSettings(settings);
+        updateAudioChain();
     });
 
     // EQ Reset

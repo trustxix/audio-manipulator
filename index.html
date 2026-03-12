@@ -243,7 +243,7 @@
                     </div>
                     <div class="setting-description">Clears settings, library, and all playlists.</div>
                 </div>
-                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v48</div>
+                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v49</div>
             </div>
         </div>
 
@@ -399,6 +399,19 @@
                 <div class="range-labels">
                     <span>0%</span>
                     <span>200%</span>
+                </div>
+            </div>
+
+            <div class="control-group" data-group="stereowidth">
+                <div class="control-header">
+                    <span class="collapse-chevron">&#9660;</span>
+                    <span class="control-label">Stereo Width <button class="info-btn" data-info-title="Stereo Width" data-info="Controls the width of the stereo image using Mid/Side processing. 0% = mono, 100% = normal stereo, 200% = extra wide. Works on stereo tracks only.">i</button></span>
+                    <span class="control-value" id="stereoWidthValue">100%</span>
+                </div>
+                <input type="range" id="stereoWidthSlider" min="0" max="200" step="1" value="100">
+                <div class="range-labels">
+                    <span>Mono</span>
+                    <span>Wide</span>
                 </div>
             </div>
 
