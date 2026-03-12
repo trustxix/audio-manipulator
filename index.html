@@ -210,7 +210,7 @@
                     </div>
                     <div class="setting-description">Clears settings, library, and all playlists.</div>
                 </div>
-                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v30</div>
+                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v31</div>
             </div>
         </div>
 
@@ -330,6 +330,18 @@
                 <div class="range-labels">
                     <span>0%</span>
                     <span>200%</span>
+                </div>
+            </div>
+
+            <div class="control-group" id="panGroup">
+                <div class="control-header">
+                    <span class="control-label">Pan <button class="info-btn" data-info-title="Stereo Pan" data-info="Shifts the audio balance between left and right channels. Center (0) plays equally in both ears. Drag left or right to steer audio to one side.">i</button></span>
+                    <span class="control-value" id="panValue">C</span>
+                </div>
+                <input type="range" id="panSlider" min="-100" max="100" step="1" value="0">
+                <div class="range-labels">
+                    <span>L</span>
+                    <span>R</span>
                 </div>
             </div>
         </div>

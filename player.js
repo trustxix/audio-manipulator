@@ -24,6 +24,7 @@
     var gainNode = null;
     var limiterNode = null;
     var eqFilters = [];
+    var pannerNode = null;       // StereoPannerNode for L/R pan
     var monoNode = null;         // ChannelMergerNode for mono downmix
     var mediaStreamDest = null;  // MediaStreamAudioDestinationNode for iOS mute-switch bypass
     var outputAudioEl = null;    // <audio> element that plays the stream
@@ -68,6 +69,8 @@
     var eqSlidersContainer = document.getElementById('eqSliders');
     var eqFreqLabels = document.getElementById('eqFreqLabels');
     var eqResetBtn = document.getElementById('eqReset');
+    var panSlider = document.getElementById('panSlider');
+    var panValueEl = document.getElementById('panValue');
 
     // Mini player DOM
     var miniPlayer = document.getElementById('miniPlayer');
@@ -155,6 +158,10 @@
             limiterNode.attack.value = 0.003;
             limiterNode.release.value = 0.25;
 
+            // Stereo pan node
+            pannerNode = audioCtx.createStereoPanner();
+            pannerNode.pan.value = settings.panValue || 0;
+
             // Mono downmix node — forces output to 1 channel
             monoNode = audioCtx.createChannelMerger(1);
 
@@ -200,6 +207,7 @@
         if (!gainNode || !audioCtx) return;
 
         gainNode.disconnect();
+        if (pannerNode) pannerNode.disconnect();
         eqFilters.forEach(function (f) { f.disconnect(); });
         if (limiterNode) limiterNode.disconnect();
         if (monoNode) monoNode.disconnect();
@@ -207,10 +215,17 @@
         // Use mediaStreamDest if available (iOS mute-switch bypass), else fallback
         var destination = mediaStreamDest || audioCtx.destination;
 
+        // Chain: gain → pan → EQ → limiter → mono → destination
         var lastNode = gainNode;
 
+        if (pannerNode) {
+            pannerNode.pan.value = settings.panValue || 0;
+            lastNode.connect(pannerNode);
+            lastNode = pannerNode;
+        }
+
         if (settings.eqEnabled && eqFilters.length > 0) {
-            gainNode.connect(eqFilters[0]);
+            lastNode.connect(eqFilters[0]);
             for (var i = 0; i < eqFilters.length - 1; i++) {
                 eqFilters[i].connect(eqFilters[i + 1]);
             }
@@ -692,6 +707,26 @@
             gainNode.gain.value = vol;
         }
         updateBoostWarning();
+    });
+
+    // Pan
+    function formatPan(val) {
+        if (val === 0) return 'C';
+        return val < 0 ? 'L' + Math.abs(val) : 'R' + val;
+    }
+
+    panSlider.value = Math.round((settings.panValue || 0) * 100);
+    panValueEl.textContent = formatPan(Math.round((settings.panValue || 0) * 100));
+
+    panSlider.addEventListener('input', function () {
+        var intVal = parseInt(panSlider.value);
+        var floatVal = intVal / 100;
+        panValueEl.textContent = formatPan(intVal);
+        settings.panValue = floatVal;
+        if (pannerNode) {
+            pannerNode.pan.value = floatVal;
+        }
+        AM.storage.saveSettings(settings);
     });
 
     // EQ Reset
