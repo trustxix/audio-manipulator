@@ -9,1388 +9,471 @@
     <title>Audio Manipulator</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            background: #0a0a0a;
-            color: #e0e0e0;
-            min-height: 100vh;
-            padding: 20px;
-            padding-top: env(safe-area-inset-top, 20px);
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 24px;
-            padding-top: 12px;
-            position: relative;
-        }
-
-        .header h1 {
-            font-size: 18px;
-            font-weight: 600;
-            color: #fff;
-        }
-
-        .settings-btn {
-            position: absolute;
-            right: 0;
-            top: 10px;
-            background: none;
-            border: none;
-            color: #888;
-            font-size: 22px;
-            cursor: pointer;
-            padding: 4px 8px;
-        }
-
-        .settings-btn:active {
-            color: #fff;
-        }
-
-        .file-picker {
-            border: 2px dashed #333;
-            border-radius: 8px;
-            padding: 24px;
-            text-align: center;
-            margin-bottom: 24px;
-            cursor: pointer;
-            transition: border-color 0.2s;
-        }
-
-        .file-picker:active {
-            border-color: #4a9eff;
-        }
-
-        .file-picker .icon {
-            font-size: 28px;
-            margin-bottom: 8px;
-        }
-
-        .file-picker .label {
-            color: #888;
-            font-size: 14px;
-        }
-
-        .file-picker input[type="file"] {
-            display: none;
-        }
-
-        .now-playing {
-            background: #141414;
-            border-radius: 8px;
-            padding: 14px;
-            margin-bottom: 24px;
-        }
-
-        .now-playing .tag {
-            font-size: 12px;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 4px;
-        }
-
-        .now-playing .filename {
-            font-size: 15px;
-            color: #ccc;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .now-playing .track-count {
-            font-size: 11px;
-            color: #555;
-            margin-top: 4px;
-        }
-
-        .sort-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 8px;
-        }
-
-        .sort-label {
-            font-size: 11px;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .sort-select {
-            background: #1a1a1a;
-            border: 1px solid #333;
-            border-radius: 6px;
-            color: #ccc;
-            font-size: 12px;
-            padding: 4px 8px;
-            outline: none;
-        }
-
-        .transport {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 16px;
-            margin-bottom: 28px;
-        }
-
-        .transport-btn {
-            width: 44px;
-            height: 44px;
-            background: #1a1a1a;
-            border: 1px solid #333;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: background 0.15s;
-        }
-
-        .transport-btn:active {
-            background: #333;
-        }
-
-        .transport-btn:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
-
-        .transport-btn .icon {
-            font-size: 14px;
-            color: #e0e0e0;
-            line-height: 1;
-        }
-
-        .play-btn {
-            width: 60px;
-            height: 60px;
-            background: #e0e0e0;
-            border: none;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: background 0.15s;
-        }
-
-        .play-btn:active {
-            background: #bbb;
-        }
-
-        .play-btn:disabled {
-            background: #333;
-            cursor: not-allowed;
-        }
-
-        .play-btn .icon {
-            font-size: 22px;
-            color: #000;
-            line-height: 1;
-        }
-
-        .play-btn:disabled .icon {
-            color: #666;
-        }
-
-        .seek-group {
-            background: #141414;
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 16px;
-        }
-
-        .seek-time {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 6px;
-        }
-
-        .seek-time span {
-            font-size: 12px;
-            color: #888;
-            font-family: 'SF Mono', SFMono-Regular, Menlo, monospace;
-        }
-
-        .semitone-controls {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 16px;
-            margin-top: 12px;
-        }
-
-        .semitone-btn {
-            width: 44px;
-            height: 44px;
-            background: #1a1a1a;
-            border: 1px solid #333;
-            border-radius: 8px;
-            color: #e0e0e0;
-            font-size: 18px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.15s;
-        }
-
-        .semitone-btn:active {
-            background: #333;
-        }
-
-        .semitone-btn:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
-
-        .semitone-display {
-            text-align: center;
-            min-width: 80px;
-        }
-
-        .semitone-display .value {
-            font-size: 18px;
-            font-weight: 600;
-            color: #fff;
-            font-family: 'SF Mono', SFMono-Regular, Menlo, monospace;
-        }
-
-        .semitone-display .label {
-            font-size: 11px;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-top: 2px;
-        }
-
-        .control-group {
-            background: #141414;
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 16px;
-        }
-
-        .control-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .control-label {
-            font-size: 13px;
-            color: #888;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .control-value {
-            font-size: 18px;
-            font-weight: 600;
-            color: #fff;
-            font-family: 'SF Mono', SFMono-Regular, Menlo, monospace;
-        }
-
-        input[type="range"] {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 100%;
-            height: 6px;
-            background: #333;
-            border-radius: 3px;
-            outline: none;
-        }
-
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 22px;
-            height: 22px;
-            background: #fff;
-            border-radius: 50%;
-            cursor: pointer;
-        }
-
-        .range-labels {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 6px;
-        }
-
-        .range-labels span {
-            font-size: 11px;
-            color: #555;
-        }
-
-        /* EQ styles */
-        .eq-container {
-            display: flex;
-            align-items: stretch;
-            gap: 2px;
-        }
-
-        .eq-db-labels {
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            align-items: flex-end;
-            padding: 2px 6px 2px 0;
-            font-size: 10px;
-            color: #555;
-            font-family: 'SF Mono', SFMono-Regular, Menlo, monospace;
-            min-width: 24px;
-        }
-
-        .eq-sliders {
-            display: flex;
-            flex: 1;
-            justify-content: space-around;
-            align-items: center;
-            position: relative;
-            padding: 4px 0;
-        }
-
-        .eq-sliders::after {
-            content: '';
-            position: absolute;
-            left: 0;
-            right: 0;
-            top: 50%;
-            height: 1px;
-            background: #333;
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        .eq-band {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            flex: 1;
-            position: relative;
-            z-index: 1;
-        }
-
-        .eq-band input[type="range"] {
-            writing-mode: vertical-lr;
-            direction: rtl;
-            width: 28px;
-            height: 120px;
-            background: transparent;
-            margin: 0;
-            padding: 0;
-        }
-
-        .eq-band input[type="range"]::-webkit-slider-runnable-track {
-            width: 4px;
-            background: #444;
-            border-radius: 2px;
-        }
-
-        .eq-band input[type="range"]::-webkit-slider-thumb {
-            width: 18px;
-            height: 18px;
-            background: #fff;
-            border-radius: 50%;
-            margin-left: -7px;
-        }
-
-        .eq-freq-labels {
-            display: flex;
-            justify-content: space-around;
-            margin-top: 6px;
-            padding-left: 32px;
-        }
-
-        .eq-freq-labels span {
-            font-size: 9px;
-            color: #555;
-            text-align: center;
-            flex: 1;
-            font-family: 'SF Mono', SFMono-Regular, Menlo, monospace;
-        }
-
-        .eq-reset-btn {
-            background: #1a1a1a;
-            border: 1px solid #333;
-            border-radius: 6px;
-            color: #888;
-            font-size: 12px;
-            padding: 4px 10px;
-            cursor: pointer;
-        }
-
-        .eq-reset-btn:active {
-            background: #333;
-        }
-
-        .eq-bypassed .eq-sliders,
-        .eq-bypassed .eq-db-labels,
-        .eq-bypassed .eq-freq-labels {
-            opacity: 0.3;
-        }
-
-        /* Volume boost warning styles */
-        .volume-warn input[type="range"] {
-            background: #4d3800;
-        }
-        .volume-warn input[type="range"]::-webkit-slider-thumb {
-            background: #ff9500;
-        }
-        .volume-warn .control-value {
-            color: #ff9500;
-        }
-
-        .volume-danger input[type="range"] {
-            background: #4d1a17;
-        }
-        .volume-danger input[type="range"]::-webkit-slider-thumb {
-            background: #ff3b30;
-        }
-        .volume-danger .control-value {
-            color: #ff3b30;
-        }
-
-        /* Settings overlay */
-        .settings-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: #0a0a0a;
-            z-index: 100;
-            padding: 20px;
-            padding-top: env(safe-area-inset-top, 20px);
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .settings-overlay.open {
-            display: block;
-        }
-
-        .settings-panel {
-            max-width: 428px;
-            margin: 0 auto;
-        }
-
-        .settings-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
-            padding-top: 12px;
-        }
-
-        .settings-header h2 {
-            font-size: 18px;
-            font-weight: 600;
-            color: #fff;
-        }
-
-        .settings-close {
-            background: none;
-            border: none;
-            color: #4a9eff;
-            font-size: 16px;
-            cursor: pointer;
-            padding: 4px 8px;
-        }
-
-        .settings-section {
-            background: #141414;
-            border-radius: 8px;
-            margin-bottom: 16px;
-            overflow: hidden;
-        }
-
-        .settings-section-title {
-            font-size: 11px;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            padding: 14px 16px 0;
-        }
-
-        .setting-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 14px 16px;
-        }
-
-        .setting-row + .setting-row {
-            border-top: 1px solid #222;
-        }
-
-        .setting-label {
-            font-size: 14px;
-            color: #ccc;
-        }
-
-        .setting-value {
-            font-size: 14px;
-            font-weight: 600;
-            color: #fff;
-            font-family: 'SF Mono', SFMono-Regular, Menlo, monospace;
-        }
-
-        .setting-slider-row {
-            padding: 0 16px 14px;
-        }
-
-        .setting-description {
-            font-size: 12px;
-            color: #555;
-            padding: 0 16px 12px;
-            line-height: 1.4;
-        }
-
-        .setting-slider-row input[type="range"] {
-            margin-bottom: 4px;
-        }
-
-        .ceiling-controls {
-            transition: opacity 0.2s;
-        }
-
-        .ceiling-controls.disabled {
-            opacity: 0.3;
-            pointer-events: none;
-        }
-
-        .toggle-switch {
-            position: relative;
-            width: 48px;
-            height: 28px;
-            flex-shrink: 0;
-        }
-
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: #333;
-            border-radius: 14px;
-            transition: background 0.2s;
-        }
-
-        .toggle-slider::before {
-            content: '';
-            position: absolute;
-            width: 22px;
-            height: 22px;
-            left: 3px;
-            bottom: 3px;
-            background: #fff;
-            border-radius: 50%;
-            transition: transform 0.2s;
-        }
-
-        .toggle-switch input:checked + .toggle-slider {
-            background: #4a9eff;
-        }
-
-        .toggle-switch input:checked + .toggle-slider::before {
-            transform: translateX(20px);
-        }
-
-        .reset-btn {
-            width: 100%;
-            padding: 14px;
-            background: #141414;
-            border: 1px solid #333;
-            border-radius: 8px;
-            color: #ff453a;
-            font-size: 15px;
-            cursor: pointer;
-            margin-top: 8px;
-        }
-
-        .reset-btn:active {
-            background: #2a1a1a;
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="header">
-        <h1>Audio Manipulator</h1>
-        <button class="settings-btn" id="settingsBtn">&#9881;</button>
-    </div>
+    <div class="app-container">
 
-    <div class="file-picker" id="filePicker">
-        <div class="icon">&#128194;</div>
-        <div class="label">Tap to load a folder</div>
-        <input type="file" id="fileInput" accept=".wav,audio/wav" webkitdirectory>
-    </div>
+        <!-- === Tab Content Area === -->
+        <div class="tab-content-area">
 
-    <div class="now-playing">
-        <div class="tag">Now Playing</div>
-        <div class="filename" id="fileName">No folder loaded</div>
-        <div class="track-count" id="trackCount"></div>
-        <div class="sort-row">
-            <span class="sort-label">Sort:</span>
-            <select class="sort-select" id="sortSelect">
-                <option value="az">A &rarr; Z</option>
-                <option value="za">Z &rarr; A</option>
-                <option value="oldest">Oldest First</option>
-                <option value="newest">Newest First</option>
-            </select>
-        </div>
-    </div>
-
-    <div class="transport">
-        <button class="transport-btn" id="prevBtn" disabled>
-            <span class="icon">&#9198;</span>
-        </button>
-        <button class="transport-btn" id="restartBtn" disabled>
-            <span class="icon">&#9632;</span>
-        </button>
-        <button class="play-btn" id="playBtn" disabled>
-            <span class="icon" id="playIcon">&#9654;</span>
-        </button>
-        <button class="transport-btn" id="nextBtn" disabled>
-            <span class="icon">&#9197;</span>
-        </button>
-    </div>
-
-    <div class="seek-group">
-        <input type="range" id="seekSlider" min="0" max="1000" step="1" value="0" disabled>
-        <div class="seek-time">
-            <span id="currentTime">0:00</span>
-            <span id="totalTime">0:00</span>
-        </div>
-    </div>
-
-    <div class="control-group">
-        <div class="control-header">
-            <span class="control-label">Speed / Pitch</span>
-            <span class="control-value" id="rateValue">100%</span>
-        </div>
-        <input type="range" id="rateSlider" min="25" max="200" step="1" value="100">
-        <div class="range-labels">
-            <span>25%</span>
-            <span>200%</span>
-        </div>
-        <div class="semitone-controls">
-            <button class="semitone-btn" id="semitoneDown">&#9664;</button>
-            <div class="semitone-display">
-                <div class="value" id="semitoneValue">0 st</div>
-                <div class="label">semitones</div>
-            </div>
-            <button class="semitone-btn" id="semitoneUp">&#9654;</button>
-        </div>
-    </div>
-
-    <div class="control-group" id="eqGroup">
-        <div class="control-header">
-            <span class="control-label">Equalizer</span>
-            <button class="eq-reset-btn" id="eqReset">Flat</button>
-        </div>
-        <div class="eq-container">
-            <div class="eq-db-labels">
-                <span>+12</span>
-                <span>0</span>
-                <span>-12</span>
-            </div>
-            <div class="eq-sliders" id="eqSliders"></div>
-        </div>
-        <div class="eq-freq-labels" id="eqFreqLabels"></div>
-    </div>
-
-    <div class="control-group" id="volumeGroup">
-        <div class="control-header">
-            <span class="control-label">Volume</span>
-            <span class="control-value" id="volumeValue">80%</span>
-        </div>
-        <input type="range" id="volumeSlider" min="0" max="2" step="0.01" value="0.8">
-        <div class="range-labels">
-            <span>0%</span>
-            <span>200%</span>
-        </div>
-    </div>
-
-    <!-- Settings Overlay -->
-    <div class="settings-overlay" id="settingsOverlay">
-        <div class="settings-panel">
-            <div class="settings-header">
-                <h2>Settings</h2>
-                <button class="settings-close" id="settingsClose">Done</button>
-            </div>
-
-            <div class="settings-section">
-                <div class="settings-section-title">Playback</div>
-                <div class="setting-row">
-                    <span class="setting-label">Autoplay</span>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="autoplayToggle" checked>
-                        <span class="toggle-slider"></span>
-                    </label>
+            <!-- Library Tab -->
+            <div class="tab-view active" id="libraryView">
+                <div class="library-header">
+                    <h2>Library</h2>
+                    <button class="load-folder-btn" id="libraryLoadBtn" style="display:none;">Load Folder</button>
                 </div>
-                <div class="setting-description">Auto-start playback on prev/next and advance to the next track when the current one ends.</div>
-            </div>
-
-            <div class="settings-section">
-                <div class="settings-section-title">Equalizer</div>
-                <div class="setting-row">
-                    <span class="setting-label">Equalizer</span>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="eqToggle" checked>
-                        <span class="toggle-slider"></span>
-                    </label>
+                <div class="library-empty" id="libraryEmpty">
+                    <div class="library-empty-text">No tracks yet</div>
+                    <button class="load-folder-btn-large" id="libraryLoadBtnLarge">Load Folder</button>
                 </div>
-                <div class="setting-description">10-band graphic equalizer. When disabled, audio bypasses all EQ filters.</div>
-            </div>
-
-            <div class="settings-section">
-                <div class="settings-section-title">Audio Safety</div>
-                <div class="setting-row">
-                    <span class="setting-label">Limiter</span>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="limiterToggle" checked>
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-                <div class="setting-description">Brick-wall limiter prevents audio from exceeding the ceiling. Protects speakers when volume is boosted above 100%.</div>
-                <div class="ceiling-controls" id="ceilingControls">
-                    <div class="setting-row">
-                        <span class="setting-label">Limiter Ceiling</span>
-                        <span class="setting-value" id="ceilingValue">-1.0 dB</span>
+                <div id="libraryContent" style="display:none;">
+                    <div class="search-bar-container">
+                        <input type="text" class="search-input" id="librarySearch" placeholder="Search tracks...">
+                        <button class="filter-btn" id="filterToggleBtn">&#9776;</button>
                     </div>
-                    <div class="setting-slider-row">
-                        <input type="range" id="ceilingSlider" min="-6" max="0" step="0.5" value="-1">
-                        <div class="range-labels">
-                            <span>-6 dB (safe)</span>
-                            <span>0 dB</span>
+                    <div class="filter-popover" id="filterPopover">
+                        <div class="filter-group-label">Availability</div>
+                        <div id="filterAvailability">
+                            <span class="filter-option selected" data-value="all">All</span>
+                            <span class="filter-option" data-value="available">Available</span>
+                            <span class="filter-option" data-value="unavailable">Unavailable</span>
+                        </div>
+                        <div class="filter-group-label">Folder</div>
+                        <select class="filter-folder-select" id="filterFolder">
+                            <option value="">All Folders</option>
+                        </select>
+                    </div>
+                    <div class="sort-filter-row">
+                        <select class="sort-select" id="sortSelect">
+                            <option value="az">A &rarr; Z</option>
+                            <option value="za">Z &rarr; A</option>
+                            <option value="oldest">Oldest First</option>
+                            <option value="newest">Newest First</option>
+                        </select>
+                        <span class="track-count-label" id="trackCountLabel"></span>
+                    </div>
+                    <ul class="track-list" id="libraryTrackList"></ul>
+                </div>
+            </div>
+
+            <!-- Playlists Tab -->
+            <div class="tab-view" id="playlistsView">
+                <div id="playlistListView">
+                    <div class="playlists-header">
+                        <h2>Playlists</h2>
+                        <button class="playlists-add-btn" id="playlistAddBtn">+</button>
+                    </div>
+                    <div class="playlist-new-input-row" id="playlistNewRow">
+                        <input type="text" class="playlist-new-input" id="playlistNewInput" placeholder="Playlist name...">
+                        <button class="playlist-new-confirm" id="playlistNewConfirm">Add</button>
+                        <button class="playlist-new-cancel" id="playlistNewCancel">Cancel</button>
+                    </div>
+                    <div class="playlists-empty" id="playlistsEmpty">No playlists yet</div>
+                    <div id="playlistCards"></div>
+                </div>
+                <div id="playlistInsideView" style="display:none;">
+                    <div class="playlist-inside-header">
+                        <button class="playlist-back-btn" id="playlistBackBtn">&#8249;</button>
+                        <div class="playlist-inside-name" id="playlistInsideName"></div>
+                    </div>
+                    <div class="playlist-inside-actions">
+                        <button class="playlist-play-btn" id="playlistPlayAllBtn">Play All</button>
+                        <button class="playlist-shuffle-btn" id="playlistShuffleBtn">Shuffle</button>
+                    </div>
+                    <ul class="track-list" id="playlistTrackList"></ul>
+                </div>
+            </div>
+
+            <!-- Queue Tab -->
+            <div class="tab-view" id="queueView">
+                <div class="queue-header">
+                    <h2>Queue</h2>
+                </div>
+                <div class="queue-source" id="queueSource"></div>
+                <div class="queue-empty" id="queueEmpty">Queue is empty — play a track from Library or a Playlist to start.</div>
+                <ul class="track-list" id="queueTrackList"></ul>
+                <button class="clear-queue-btn" id="clearQueueBtn" style="display:none;">Clear Queue</button>
+            </div>
+
+            <!-- Settings Tab -->
+            <div class="tab-view" id="settingsView">
+                <div class="settings-tab-header">
+                    <h2>Settings</h2>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-section-title">Playback</div>
+                    <div class="setting-row">
+                        <span class="setting-label">Autoplay</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="autoplayToggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-description">Auto-advance to the next track when the current one ends.</div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-section-title">Equalizer</div>
+                    <div class="setting-row">
+                        <span class="setting-label">Equalizer</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="eqToggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-description">10-band graphic equalizer. When disabled, audio bypasses all EQ filters.</div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-section-title">Audio Safety</div>
+                    <div class="setting-row">
+                        <span class="setting-label">Limiter</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="limiterToggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-description">Brick-wall limiter prevents audio from exceeding the ceiling.</div>
+                    <div class="ceiling-controls" id="ceilingControls">
+                        <div class="setting-row">
+                            <span class="setting-label">Limiter Ceiling</span>
+                            <span class="setting-value" id="ceilingValue">-1.0 dB</span>
+                        </div>
+                        <div class="setting-slider-row">
+                            <input type="range" id="ceilingSlider" min="-6" max="0" step="0.5" value="-1">
+                            <div class="range-labels">
+                                <span>-6 dB (safe)</span>
+                                <span>0 dB</span>
+                            </div>
                         </div>
                     </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Volume Boost Warning</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="boostWarningToggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-description">Colors the volume slider orange above 100% and red above 150%.</div>
                 </div>
-                <div class="setting-row">
-                    <span class="setting-label">Volume Boost Warning</span>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="boostWarningToggle" checked>
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-                <div class="setting-description">Colors the volume slider orange above 100% and red above 150% as a visual reminder.</div>
-            </div>
 
-            <button class="reset-btn" id="resetDefaults">Reset to Defaults</button>
+                <div class="settings-section">
+                    <div class="settings-section-title">Library</div>
+                    <div class="setting-row">
+                        <span class="setting-label">Load Folder</span>
+                        <button class="load-folder-btn" id="settingsLoadBtn">Load</button>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Clear Library</span>
+                        <button class="load-folder-btn" id="clearLibraryBtn" style="color:#ff453a;border-color:#ff453a;">Clear</button>
+                    </div>
+                    <div class="settings-stats" id="libraryStats">0 tracks | 0 available | 0 B used</div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-section-title">Reset</div>
+                    <div class="setting-row">
+                        <span class="setting-label">Reset to Defaults</span>
+                        <button class="load-folder-btn" id="resetDefaultsBtn">Reset</button>
+                    </div>
+                    <div class="setting-description">Resets settings only. Library and playlists are preserved.</div>
+                    <div class="setting-row">
+                        <span class="setting-label">Reset Everything</span>
+                        <button class="load-folder-btn" id="resetEverythingBtn" style="color:#ff453a;border-color:#ff453a;">Reset All</button>
+                    </div>
+                    <div class="setting-description">Clears settings, library, and all playlists.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- === Mini Player === -->
+        <div class="mini-player" id="miniPlayer">
+            <div class="mini-player-info">
+                <div class="mini-player-title" id="miniPlayerTitle">—</div>
+                <div class="mini-player-time" id="miniPlayerTime">0:00</div>
+            </div>
+            <button class="mini-player-play-btn" id="miniPlayerPlayBtn">
+                <span id="miniPlayerPlayIcon">&#9654;</span>
+            </button>
+            <div class="mini-player-progress" id="miniPlayerProgress" style="width:0%"></div>
+        </div>
+
+        <!-- === Tab Bar === -->
+        <div class="tab-bar">
+            <button class="tab-bar-btn active" data-tab="libraryView">
+                <span class="tab-icon">&#127925;</span>
+                <span class="tab-label">Library</span>
+            </button>
+            <button class="tab-bar-btn" data-tab="playlistsView">
+                <span class="tab-icon">&#128220;</span>
+                <span class="tab-label">Playlists</span>
+            </button>
+            <button class="tab-bar-btn" data-tab="queueView">
+                <span class="tab-icon">&#9654;</span>
+                <span class="tab-label">Queue</span>
+            </button>
+            <button class="tab-bar-btn" data-tab="settingsView">
+                <span class="tab-icon">&#9881;</span>
+                <span class="tab-label">Settings</span>
+            </button>
         </div>
     </div>
 
+    <!-- === Now Playing Overlay === -->
+    <div class="now-playing-overlay" id="nowPlayingOverlay">
+        <div class="np-header">
+            <button class="np-dismiss-btn" id="npDismissBtn">&#8744; Done</button>
+            <span class="np-header-title">Now Playing</span>
+        </div>
+        <div class="np-body">
+            <div class="np-track-info">
+                <div class="np-track-name" id="npTrackName">No track loaded</div>
+                <div class="np-track-sub" id="npTrackSub"></div>
+            </div>
+
+            <div class="seek-group">
+                <input type="range" id="seekSlider" min="0" max="1000" step="1" value="0" disabled>
+                <div class="seek-time">
+                    <span id="currentTime">0:00</span>
+                    <span id="totalTime">0:00</span>
+                </div>
+            </div>
+
+            <div class="transport">
+                <button class="transport-btn" id="prevBtn" disabled>
+                    <span class="icon">&#9198;</span>
+                </button>
+                <button class="play-btn" id="playBtn" disabled>
+                    <span class="icon" id="playIcon">&#9654;</span>
+                </button>
+                <button class="transport-btn" id="nextBtn" disabled>
+                    <span class="icon">&#9197;</span>
+                </button>
+            </div>
+
+            <div class="control-group">
+                <div class="control-header">
+                    <span class="control-label">Speed / Pitch</span>
+                    <span class="control-value" id="rateValue">100%</span>
+                </div>
+                <input type="range" id="rateSlider" min="25" max="200" step="1" value="100">
+                <div class="range-labels">
+                    <span>25%</span>
+                    <span>200%</span>
+                </div>
+                <div class="semitone-controls">
+                    <button class="semitone-btn" id="semitoneDown">&#9664;</button>
+                    <div class="semitone-display">
+                        <div class="value" id="semitoneValue">0 st</div>
+                        <div class="label">semitones</div>
+                    </div>
+                    <button class="semitone-btn" id="semitoneUp">&#9654;</button>
+                </div>
+            </div>
+
+            <div class="control-group" id="eqGroup">
+                <div class="control-header">
+                    <span class="control-label">Equalizer</span>
+                    <button class="eq-reset-btn" id="eqReset">Flat</button>
+                </div>
+                <div class="eq-container">
+                    <div class="eq-db-labels">
+                        <span>+12</span>
+                        <span>0</span>
+                        <span>-12</span>
+                    </div>
+                    <div class="eq-sliders" id="eqSliders"></div>
+                </div>
+                <div class="eq-freq-labels" id="eqFreqLabels"></div>
+            </div>
+
+            <div class="control-group" id="volumeGroup">
+                <div class="control-header">
+                    <span class="control-label">Volume</span>
+                    <span class="control-value" id="volumeValue">80%</span>
+                </div>
+                <input type="range" id="volumeSlider" min="0" max="2" step="0.01" value="0.8">
+                <div class="range-labels">
+                    <span>0%</span>
+                    <span>200%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- === Bottom Sheet === -->
+    <div class="bottom-sheet-backdrop" id="bottomSheetBackdrop"></div>
+    <div class="bottom-sheet" id="bottomSheet">
+        <div class="bottom-sheet-handle"></div>
+        <div class="bottom-sheet-title" id="bottomSheetTitle"></div>
+        <div id="bottomSheetOptions"></div>
+        <button class="bottom-sheet-cancel" id="bottomSheetCancel">Cancel</button>
+    </div>
+
+    <!-- === Playlist Picker === -->
+    <div class="playlist-picker-backdrop" id="playlistPickerBackdrop"></div>
+    <div class="playlist-picker" id="playlistPicker">
+        <div class="bottom-sheet-handle"></div>
+        <div class="playlist-picker-title">Add to Playlist</div>
+        <div id="playlistPickerList"></div>
+    </div>
+
+    <!-- === Toast === -->
+    <div class="toast" id="toast"></div>
+
+    <!-- === Hidden File Input === -->
+    <input type="file" class="hidden-file-input" id="fileInput" accept=".wav,audio/wav" webkitdirectory>
+
+    <!-- === Scripts (order matters: storage first, then player, then features, then settings) === -->
+    <script src="storage.js"></script>
+    <script src="player.js"></script>
+    <script src="library.js"></script>
+    <script src="queue.js"></script>
+    <script src="playlists.js"></script>
+    <script src="settings.js"></script>
     <script>
-    // --- EQ band definitions ---
-    const EQ_FREQUENCIES = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
-
-    function formatFreq(hz) {
-        return hz >= 1000 ? (hz / 1000) + 'k' : String(hz);
-    }
-
-    // --- Settings ---
-    const DEFAULT_SETTINGS = {
-        autoplay: true,
-        sortOrder: 'az',
-        limiterEnabled: true,
-        limiterCeiling: -1,
-        boostWarning: true,
-        eqEnabled: true,
-        eqBands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    };
-
-    function loadSettings() {
-        try {
-            const saved = localStorage.getItem('audio-manipulator-settings');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                const merged = Object.assign({}, DEFAULT_SETTINGS, parsed);
-                if (!Array.isArray(merged.eqBands) || merged.eqBands.length !== 10) {
-                    merged.eqBands = DEFAULT_SETTINGS.eqBands.slice();
-                }
-                return merged;
-            }
-        } catch (e) {}
-        return Object.assign({}, DEFAULT_SETTINGS, { eqBands: DEFAULT_SETTINGS.eqBands.slice() });
-    }
-
-    function saveSettings() {
-        try {
-            localStorage.setItem('audio-manipulator-settings', JSON.stringify(settings));
-        } catch (e) {}
-    }
-
-    let settings = loadSettings();
-
-    // --- DOM refs ---
-    const filePicker = document.getElementById('filePicker');
-    const fileInput = document.getElementById('fileInput');
-    const fileName = document.getElementById('fileName');
-    const trackCount = document.getElementById('trackCount');
-    const playBtn = document.getElementById('playBtn');
-    const playIcon = document.getElementById('playIcon');
-    const prevBtn = document.getElementById('prevBtn');
-    const nextBtn = document.getElementById('nextBtn');
-    const restartBtn = document.getElementById('restartBtn');
-    const rateSlider = document.getElementById('rateSlider');
-    const rateValue = document.getElementById('rateValue');
-    const volumeSlider = document.getElementById('volumeSlider');
-    const volumeValue = document.getElementById('volumeValue');
-    const volumeGroup = document.getElementById('volumeGroup');
-    const seekSlider = document.getElementById('seekSlider');
-    const currentTimeEl = document.getElementById('currentTime');
-    const totalTimeEl = document.getElementById('totalTime');
-    const semitoneUp = document.getElementById('semitoneUp');
-    const semitoneDown = document.getElementById('semitoneDown');
-    const semitoneValue = document.getElementById('semitoneValue');
-    const autoplayToggle = document.getElementById('autoplayToggle');
-    const settingsBtn = document.getElementById('settingsBtn');
-    const settingsOverlay = document.getElementById('settingsOverlay');
-    const settingsClose = document.getElementById('settingsClose');
-    const limiterToggle = document.getElementById('limiterToggle');
-    const ceilingSlider = document.getElementById('ceilingSlider');
-    const ceilingValue = document.getElementById('ceilingValue');
-    const ceilingControls = document.getElementById('ceilingControls');
-    const boostWarningToggle = document.getElementById('boostWarningToggle');
-    const eqToggle = document.getElementById('eqToggle');
-    const eqGroup = document.getElementById('eqGroup');
-    const eqSlidersContainer = document.getElementById('eqSliders');
-    const eqFreqLabels = document.getElementById('eqFreqLabels');
-    const eqResetBtn = document.getElementById('eqReset');
-    const sortSelect = document.getElementById('sortSelect');
-    const resetDefaults = document.getElementById('resetDefaults');
-
-    // --- Audio state ---
-    let audioCtx = null;
-    let audioBuffer = null;
-    let sourceNode = null;
-    let gainNode = null;
-    let limiterNode = null;
-    let eqFilters = [];
-    let isPlaying = false;
-    let segmentStartTime = 0;
-    let bufferOffset = 0;
-    let currentRate = 1.0;
-    let isSeeking = false;
-    let animFrameId = null;
-    let semitones = 0;
-    const SEMITONE = Math.pow(2, 1 / 12);
-
-    // Playlist state
-    let rawFiles = [];
-    let playlist = [];
-    let currentTrackIndex = -1;
-
-    function sortPlaylist(files, order) {
-        const sorted = files.slice();
-        switch (order) {
-            case 'az':
-                sorted.sort((a, b) => a.name.localeCompare(b.name));
-                break;
-            case 'za':
-                sorted.sort((a, b) => b.name.localeCompare(a.name));
-                break;
-            case 'oldest':
-                sorted.sort((a, b) => a.lastModified - b.lastModified);
-                break;
-            case 'newest':
-                sorted.sort((a, b) => b.lastModified - a.lastModified);
-                break;
-        }
-        return sorted;
-    }
-
-    // --- Build EQ sliders ---
-    const eqSliderEls = [];
-
-    EQ_FREQUENCIES.forEach((freq, i) => {
-        const band = document.createElement('div');
-        band.className = 'eq-band';
-
-        const slider = document.createElement('input');
-        slider.type = 'range';
-        slider.min = '-12';
-        slider.max = '12';
-        slider.step = '0.5';
-        slider.value = settings.eqBands[i];
-
-        slider.addEventListener('input', () => {
-            const val = parseFloat(slider.value);
-            settings.eqBands[i] = val;
-            if (eqFilters[i]) {
-                eqFilters[i].gain.value = val;
-            }
-            updateFreqLabelColors();
-            saveSettings();
-        });
-
-        band.appendChild(slider);
-        eqSlidersContainer.appendChild(band);
-        eqSliderEls.push(slider);
-
-        const label = document.createElement('span');
-        label.textContent = formatFreq(freq);
-        eqFreqLabels.appendChild(label);
-    });
-
-    function updateFreqLabelColors() {
-        const labels = eqFreqLabels.children;
-        for (let i = 0; i < labels.length; i++) {
-            labels[i].style.color = settings.eqBands[i] !== 0 ? '#4a9eff' : '#555';
-        }
-    }
-
-    updateFreqLabelColors();
-
-    // --- Apply loaded settings to UI ---
-    function applySettingsToUI() {
-        autoplayToggle.checked = settings.autoplay;
-        limiterToggle.checked = settings.limiterEnabled;
-        ceilingSlider.value = settings.limiterCeiling;
-        ceilingValue.textContent = settings.limiterCeiling.toFixed(1) + ' dB';
-        ceilingControls.classList.toggle('disabled', !settings.limiterEnabled);
-        boostWarningToggle.checked = settings.boostWarning;
-        eqToggle.checked = settings.eqEnabled;
-        sortSelect.value = settings.sortOrder;
-        eqGroup.classList.toggle('eq-bypassed', !settings.eqEnabled);
-        eqSliderEls.forEach((slider, i) => {
-            slider.value = settings.eqBands[i];
-        });
-        updateFreqLabelColors();
-        updateBoostWarning();
-    }
-
-    applySettingsToUI();
-
-    // --- Settings panel ---
-    settingsBtn.addEventListener('click', () => {
-        settingsOverlay.classList.add('open');
-    });
-
-    settingsClose.addEventListener('click', () => {
-        settingsOverlay.classList.remove('open');
-    });
-
-    autoplayToggle.addEventListener('change', () => {
-        settings.autoplay = autoplayToggle.checked;
-        saveSettings();
-    });
-
-    sortSelect.addEventListener('change', () => {
-        settings.sortOrder = sortSelect.value;
-        saveSettings();
-        if (rawFiles.length > 0) {
-            const currentFile = playlist[currentTrackIndex];
-            playlist = sortPlaylist(rawFiles, settings.sortOrder);
-            currentTrackIndex = currentFile ? playlist.indexOf(currentFile) : 0;
-            trackCount.textContent = 'Track ' + (currentTrackIndex + 1) + ' of ' + playlist.length;
-            updateNavButtons();
-        }
-    });
-
-    eqToggle.addEventListener('change', () => {
-        settings.eqEnabled = eqToggle.checked;
-        eqGroup.classList.toggle('eq-bypassed', !settings.eqEnabled);
-        updateAudioChain();
-        saveSettings();
-    });
-
-    limiterToggle.addEventListener('change', () => {
-        settings.limiterEnabled = limiterToggle.checked;
-        ceilingControls.classList.toggle('disabled', !settings.limiterEnabled);
-        updateAudioChain();
-        saveSettings();
-    });
-
-    ceilingSlider.addEventListener('input', () => {
-        const val = parseFloat(ceilingSlider.value);
-        settings.limiterCeiling = val;
-        ceilingValue.textContent = val.toFixed(1) + ' dB';
-        if (limiterNode) {
-            limiterNode.threshold.value = val;
-        }
-        saveSettings();
-    });
-
-    boostWarningToggle.addEventListener('change', () => {
-        settings.boostWarning = boostWarningToggle.checked;
-        updateBoostWarning();
-        saveSettings();
-    });
-
-    resetDefaults.addEventListener('click', () => {
-        settings = Object.assign({}, DEFAULT_SETTINGS, { eqBands: DEFAULT_SETTINGS.eqBands.slice() });
-        saveSettings();
-        applySettingsToUI();
-        eqFilters.forEach((f, i) => { f.gain.value = 0; });
-        updateAudioChain();
-    });
-
-    // --- EQ reset ---
-    eqResetBtn.addEventListener('click', () => {
-        settings.eqBands = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-        eqSliderEls.forEach(slider => { slider.value = 0; });
-        eqFilters.forEach(f => { f.gain.value = 0; });
-        updateFreqLabelColors();
-        saveSettings();
-    });
-
-    // --- Audio chain management ---
-    function updateAudioChain() {
-        if (!gainNode || !audioCtx) return;
-
-        // Disconnect everything
-        gainNode.disconnect();
-        eqFilters.forEach(f => f.disconnect());
-        if (limiterNode) limiterNode.disconnect();
-
-        // Build chain: gain → [eq filters] → [limiter] → destination
-        let lastNode = gainNode;
-
-        if (settings.eqEnabled && eqFilters.length > 0) {
-            gainNode.connect(eqFilters[0]);
-            for (let i = 0; i < eqFilters.length - 1; i++) {
-                eqFilters[i].connect(eqFilters[i + 1]);
-            }
-            lastNode = eqFilters[eqFilters.length - 1];
-        }
-
-        if (settings.limiterEnabled && limiterNode) {
-            limiterNode.threshold.value = settings.limiterCeiling;
-            lastNode.connect(limiterNode);
-            limiterNode.connect(audioCtx.destination);
-        } else {
-            lastNode.connect(audioCtx.destination);
-        }
-    }
-
-    // --- Volume boost warning ---
-    function updateBoostWarning() {
-        const vol = parseFloat(volumeSlider.value);
-        volumeGroup.classList.remove('volume-warn', 'volume-danger');
-        if (settings.boostWarning) {
-            if (vol > 1.5) {
-                volumeGroup.classList.add('volume-danger');
-            } else if (vol > 1.0) {
-                volumeGroup.classList.add('volume-warn');
-            }
-        }
-    }
-
-    // --- File handling ---
-    filePicker.addEventListener('click', () => fileInput.click());
-
-    fileInput.addEventListener('change', (e) => {
-        rawFiles = Array.from(e.target.files)
-            .filter(f => f.name.toLowerCase().endsWith('.wav'));
-
-        if (rawFiles.length === 0) {
-            fileName.textContent = 'No .wav files found';
-            trackCount.textContent = '';
-            return;
-        }
-
-        playlist = sortPlaylist(rawFiles, settings.sortOrder);
-        currentTrackIndex = 0;
-
-        if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            gainNode = audioCtx.createGain();
-            gainNode.gain.value = parseFloat(volumeSlider.value);
-
-            // Create EQ filters
-            EQ_FREQUENCIES.forEach((freq, i) => {
-                const filter = audioCtx.createBiquadFilter();
-                if (i === 0) {
-                    filter.type = 'lowshelf';
-                } else if (i === EQ_FREQUENCIES.length - 1) {
-                    filter.type = 'highshelf';
-                } else {
-                    filter.type = 'peaking';
-                    filter.Q.value = 1.4;
-                }
-                filter.frequency.value = freq;
-                filter.gain.value = settings.eqBands[i];
-                eqFilters.push(filter);
+        // Tab switching
+        document.querySelectorAll('.tab-bar-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                document.querySelectorAll('.tab-bar-btn').forEach(function (b) { b.classList.remove('active'); });
+                document.querySelectorAll('.tab-view').forEach(function (v) { v.classList.remove('active'); });
+                btn.classList.add('active');
+                document.getElementById(btn.dataset.tab).classList.add('active');
             });
+        });
 
-            // Create limiter (DynamicsCompressor configured as brick-wall limiter)
-            limiterNode = audioCtx.createDynamicsCompressor();
-            limiterNode.threshold.value = settings.limiterCeiling;
-            limiterNode.knee.value = 0;
-            limiterNode.ratio.value = 20;
-            limiterNode.attack.value = 0.003;
-            limiterNode.release.value = 0.25;
+        // Mini player tap opens Now Playing
+        document.getElementById('miniPlayer').addEventListener('click', function (e) {
+            if (e.target.closest('.mini-player-play-btn')) return;
+            document.getElementById('nowPlayingOverlay').classList.add('open');
+        });
 
-            updateAudioChain();
-        }
+        // Now Playing dismiss
+        document.getElementById('npDismissBtn').addEventListener('click', function () {
+            document.getElementById('nowPlayingOverlay').classList.remove('open');
+        });
 
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
+        // Bottom sheet close
+        document.getElementById('bottomSheetBackdrop').addEventListener('click', function () {
+            window.AM.closeBottomSheet();
+        });
+        document.getElementById('bottomSheetCancel').addEventListener('click', function () {
+            window.AM.closeBottomSheet();
+        });
 
-        loadTrack(0, false);
-    });
+        // Playlist picker close
+        document.getElementById('playlistPickerBackdrop').addEventListener('click', function () {
+            window.AM.closePlaylistPicker();
+        });
 
-    function loadTrack(index, autoplay) {
-        if (index < 0 || index >= playlist.length) return;
+        // Toast utility
+        window.AM = window.AM || {};
+        var toastTimer = null;
+        window.AM.showToast = function (msg) {
+            var t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('visible');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(function () { t.classList.remove('visible'); }, 2000);
+        };
 
-        stopPlayback();
-        audioBuffer = null;
-        playBtn.disabled = true;
-        seekSlider.disabled = true;
-        currentTrackIndex = index;
-        updateNavButtons();
-
-        fileName.textContent = 'Loading...';
-
-        const file = playlist[index];
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            audioCtx.decodeAudioData(event.target.result)
-                .then((buffer) => {
-                    audioBuffer = buffer;
-                    fileName.textContent = file.name;
-                    trackCount.textContent = 'Track ' + (index + 1) + ' of ' + playlist.length;
-                    playBtn.disabled = false;
-                    restartBtn.disabled = false;
-                    seekSlider.disabled = false;
-                    seekSlider.value = 0;
-                    totalTimeEl.textContent = formatTime(buffer.duration);
-                    currentTimeEl.textContent = '0:00';
-                    bufferOffset = 0;
-                    if (autoplay) {
-                        startPlayback();
-                    }
-                })
-                .catch(() => {
-                    fileName.textContent = 'Error: could not decode file';
-                    trackCount.textContent = '';
+        // Bottom sheet utility
+        window.AM.openBottomSheet = function (title, options) {
+            document.getElementById('bottomSheetTitle').textContent = title;
+            var container = document.getElementById('bottomSheetOptions');
+            container.innerHTML = '';
+            options.forEach(function (opt) {
+                var btn = document.createElement('button');
+                btn.className = 'bottom-sheet-option' + (opt.danger ? ' danger' : '');
+                btn.innerHTML = '<span class="bs-icon">' + (opt.icon || '') + '</span>' + opt.label;
+                btn.addEventListener('click', function () {
+                    window.AM.closeBottomSheet();
+                    if (opt.action) opt.action();
                 });
+                container.appendChild(btn);
+            });
+            document.getElementById('bottomSheetBackdrop').classList.add('open');
+            document.getElementById('bottomSheet').classList.add('open');
         };
-        reader.onerror = () => {
-            fileName.textContent = 'Error: could not read file';
+
+        window.AM.closeBottomSheet = function () {
+            document.getElementById('bottomSheetBackdrop').classList.remove('open');
+            document.getElementById('bottomSheet').classList.remove('open');
         };
-        reader.readAsArrayBuffer(file);
-    }
 
-    function updateNavButtons() {
-        prevBtn.disabled = playlist.length === 0 || currentTrackIndex <= 0;
-        nextBtn.disabled = playlist.length === 0 || currentTrackIndex >= playlist.length - 1;
-    }
+        // Playlist picker utility
+        window.AM.openPlaylistPicker = function (trackId) {
+            var playlists = window.AM.storage.getPlaylists();
+            var list = document.getElementById('playlistPickerList');
+            list.innerHTML = '';
 
-    prevBtn.addEventListener('click', () => {
-        if (currentTrackIndex > 0) {
-            loadTrack(currentTrackIndex - 1, settings.autoplay);
-        }
-    });
-
-    nextBtn.addEventListener('click', () => {
-        if (currentTrackIndex < playlist.length - 1) {
-            loadTrack(currentTrackIndex + 1, settings.autoplay);
-        }
-    });
-
-    restartBtn.addEventListener('click', () => {
-        if (!audioBuffer) return;
-        const wasPlaying = isPlaying;
-        stopPlayback();
-        bufferOffset = 0;
-        seekSlider.value = 0;
-        currentTimeEl.textContent = '0:00';
-        if (wasPlaying) {
-            startPlayback();
-        }
-    });
-
-    function formatTime(sec) {
-        const m = Math.floor(sec / 60);
-        const s = Math.floor(sec % 60);
-        return m + ':' + (s < 10 ? '0' : '') + s;
-    }
-
-    function updateSeekUI() {
-        if (!audioBuffer) return;
-        const pos = getCurrentBufferPosition();
-        currentTimeEl.textContent = formatTime(pos);
-        if (!isSeeking) {
-            seekSlider.value = Math.round((pos / audioBuffer.duration) * 1000);
-        }
-        if (isPlaying) {
-            animFrameId = requestAnimationFrame(updateSeekUI);
-        }
-    }
-
-    function getCurrentBufferPosition() {
-        if (!isPlaying) return bufferOffset;
-        const wallElapsed = audioCtx.currentTime - segmentStartTime;
-        const pos = bufferOffset + wallElapsed * currentRate;
-        return audioBuffer ? Math.min(pos, audioBuffer.duration) : pos;
-    }
-
-    playBtn.addEventListener('click', () => {
-        if (!audioBuffer) return;
-        if (isPlaying) {
-            pausePlayback();
-        } else {
-            startPlayback();
-        }
-    });
-
-    function startPlayback() {
-        sourceNode = audioCtx.createBufferSource();
-        sourceNode.buffer = audioBuffer;
-        currentRate = parseInt(rateSlider.value) / 100;
-        sourceNode.playbackRate.value = currentRate;
-        sourceNode.connect(gainNode);
-
-        sourceNode.onended = () => {
-            if (isPlaying) {
-                isPlaying = false;
-                bufferOffset = 0;
-                playIcon.innerHTML = '&#9654;';
-                seekSlider.value = 0;
-                currentTimeEl.textContent = '0:00';
-                if (animFrameId) cancelAnimationFrame(animFrameId);
-                // Auto-advance to next track
-                if (settings.autoplay && currentTrackIndex < playlist.length - 1) {
-                    loadTrack(currentTrackIndex + 1, true);
-                }
+            if (playlists.length === 0) {
+                var empty = document.createElement('div');
+                empty.className = 'playlist-picker-item playlist-picker-new';
+                empty.textContent = '+ Create a Playlist';
+                empty.addEventListener('click', function () {
+                    window.AM.closePlaylistPicker();
+                    // Switch to playlists tab and trigger new playlist
+                    document.querySelectorAll('.tab-bar-btn').forEach(function (b) { b.classList.remove('active'); });
+                    document.querySelectorAll('.tab-view').forEach(function (v) { v.classList.remove('active'); });
+                    document.querySelector('[data-tab="playlistsView"]').classList.add('active');
+                    document.getElementById('playlistsView').classList.add('active');
+                    if (window.AM.playlists && window.AM.playlists.showNewInput) {
+                        window.AM.playlists.showNewInput(trackId);
+                    }
+                });
+                list.appendChild(empty);
+            } else {
+                playlists.forEach(function (pl) {
+                    var item = document.createElement('div');
+                    item.className = 'playlist-picker-item';
+                    item.textContent = pl.name;
+                    item.addEventListener('click', function () {
+                        window.AM.closePlaylistPicker();
+                        if (window.AM.playlists) {
+                            window.AM.playlists.addTrackToPlaylist(pl.id, trackId);
+                        }
+                        window.AM.showToast('Added to ' + pl.name);
+                    });
+                    list.appendChild(item);
+                });
+                var newItem = document.createElement('div');
+                newItem.className = 'playlist-picker-item playlist-picker-new';
+                newItem.textContent = '+ New Playlist';
+                newItem.addEventListener('click', function () {
+                    window.AM.closePlaylistPicker();
+                    document.querySelectorAll('.tab-bar-btn').forEach(function (b) { b.classList.remove('active'); });
+                    document.querySelectorAll('.tab-view').forEach(function (v) { v.classList.remove('active'); });
+                    document.querySelector('[data-tab="playlistsView"]').classList.add('active');
+                    document.getElementById('playlistsView').classList.add('active');
+                    if (window.AM.playlists && window.AM.playlists.showNewInput) {
+                        window.AM.playlists.showNewInput(trackId);
+                    }
+                });
+                list.appendChild(newItem);
             }
+
+            document.getElementById('playlistPickerBackdrop').classList.add('open');
+            document.getElementById('playlistPicker').classList.add('open');
         };
 
-        sourceNode.start(0, bufferOffset);
-        segmentStartTime = audioCtx.currentTime;
-        isPlaying = true;
-        playIcon.innerHTML = '&#9646;&#9646;';
-        updateSeekUI();
-    }
+        window.AM.closePlaylistPicker = function () {
+            document.getElementById('playlistPickerBackdrop').classList.remove('open');
+            document.getElementById('playlistPicker').classList.remove('open');
+        };
 
-    function pausePlayback() {
-        if (!sourceNode) return;
-        bufferOffset = getCurrentBufferPosition();
-        if (bufferOffset >= audioBuffer.duration) {
-            bufferOffset = 0;
-        }
-        sourceNode.onended = null;
-        sourceNode.stop();
-        sourceNode = null;
-        isPlaying = false;
-        playIcon.innerHTML = '&#9654;';
-        if (animFrameId) cancelAnimationFrame(animFrameId);
-        updateSeekUI();
-    }
+        // Switch to tab programmatically
+        window.AM.switchTab = function (tabId) {
+            document.querySelectorAll('.tab-bar-btn').forEach(function (b) { b.classList.remove('active'); });
+            document.querySelectorAll('.tab-view').forEach(function (v) { v.classList.remove('active'); });
+            var btn = document.querySelector('[data-tab="' + tabId + '"]');
+            if (btn) btn.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        };
 
-    function stopPlayback() {
-        if (sourceNode) {
-            sourceNode.onended = null;
-            sourceNode.stop();
-            sourceNode = null;
-        }
-        isPlaying = false;
-        bufferOffset = 0;
-        playIcon.innerHTML = '&#9654;';
-        if (animFrameId) cancelAnimationFrame(animFrameId);
-    }
-
-    seekSlider.addEventListener('input', () => {
-        if (!audioBuffer) return;
-        isSeeking = true;
-        const pos = (parseInt(seekSlider.value) / 1000) * audioBuffer.duration;
-        currentTimeEl.textContent = formatTime(pos);
-    });
-
-    seekSlider.addEventListener('change', () => {
-        if (!audioBuffer) return;
-        const pos = (parseInt(seekSlider.value) / 1000) * audioBuffer.duration;
-        bufferOffset = pos;
-        isSeeking = false;
-        if (isPlaying) {
-            sourceNode.onended = null;
-            sourceNode.stop();
-            sourceNode = null;
-            startPlayback();
-        }
-    });
-
-    function applyRate(rate) {
-        const pct = Math.round(rate * 100);
-        rateSlider.value = Math.max(25, Math.min(200, pct));
-        rateValue.textContent = pct + '%';
-        if (sourceNode && isPlaying) {
-            bufferOffset = getCurrentBufferPosition();
-            segmentStartTime = audioCtx.currentTime;
-            currentRate = rate;
-            sourceNode.playbackRate.value = rate;
-        } else {
-            currentRate = rate;
-        }
-    }
-
-    function updateSemitoneDisplay() {
-        const sign = semitones > 0 ? '+' : '';
-        semitoneValue.textContent = sign + semitones + ' st';
-        semitoneDown.disabled = semitones <= -12;
-        semitoneUp.disabled = semitones >= 12;
-    }
-
-    rateSlider.addEventListener('input', () => {
-        const pct = parseInt(rateSlider.value);
-        const rate = pct / 100;
-        rateValue.textContent = pct + '%';
-        semitones = Math.round(12 * Math.log2(rate));
-        updateSemitoneDisplay();
-        if (sourceNode && isPlaying) {
-            bufferOffset = getCurrentBufferPosition();
-            segmentStartTime = audioCtx.currentTime;
-            currentRate = rate;
-            sourceNode.playbackRate.value = rate;
-        }
-    });
-
-    semitoneUp.addEventListener('click', () => {
-        if (semitones >= 12) return;
-        semitones++;
-        applyRate(Math.pow(SEMITONE, semitones));
-        updateSemitoneDisplay();
-    });
-
-    semitoneDown.addEventListener('click', () => {
-        if (semitones <= -12) return;
-        semitones--;
-        applyRate(Math.pow(SEMITONE, semitones));
-        updateSemitoneDisplay();
-    });
-
-    volumeSlider.addEventListener('input', () => {
-        const vol = parseFloat(volumeSlider.value);
-        volumeValue.textContent = Math.round(vol * 100) + '%';
-        if (gainNode) {
-            gainNode.gain.value = vol;
-        }
-        updateBoostWarning();
-    });
-    </script>
-    <script>
+        // Service Worker
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js');
         }
