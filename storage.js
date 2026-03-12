@@ -5,7 +5,8 @@
     const KEYS = {
         library: 'am-library',
         playlists: 'am-playlists',
-        settings: 'am-settings'
+        settings: 'am-settings',
+        favorites: 'am-favorites'
     };
 
     function safeGet(key, fallback) {
@@ -101,10 +102,19 @@
             safeRemove(KEYS.library);
         },
 
+        getFavorites: function () {
+            return safeGet(KEYS.favorites, []);
+        },
+
+        saveFavorites: function (ids) {
+            return safeSet(KEYS.favorites, ids);
+        },
+
         clearAll: function () {
             safeRemove(KEYS.library);
             safeRemove(KEYS.playlists);
             safeRemove(KEYS.settings);
+            safeRemove(KEYS.favorites);
         },
 
         getStorageUsed: function () {

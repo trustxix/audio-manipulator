@@ -17,6 +17,7 @@
     var libraryLoadBtn = document.getElementById('libraryLoadBtn');
     var libraryLoadBtnLarge = document.getElementById('libraryLoadBtnLarge');
     var librarySearch = document.getElementById('librarySearch');
+    var favFilterBtn = document.getElementById('favFilterBtn');
     var filterToggleBtn = document.getElementById('filterToggleBtn');
     var filterPopover = document.getElementById('filterPopover');
     var filterFolder = document.getElementById('filterFolder');
@@ -24,9 +25,13 @@
     var trackCountLabel = document.getElementById('trackCountLabel');
     var libraryTrackList = document.getElementById('libraryTrackList');
 
+    // Favorites state
+    var favoriteIds = new Set(storage.getFavorites());
+
     // Filter state
     var currentAvailFilter = 'all';
     var currentFolderFilter = '';
+    var currentFavFilter = false;
 
     // --- Init UI state ---
     sortSelect.value = settings.sortOrder;
@@ -187,6 +192,24 @@
         renderTrackList();
     });
 
+    // --- Favorites ---
+    function toggleFavorite(entryId) {
+        if (favoriteIds.has(entryId)) {
+            favoriteIds.delete(entryId);
+        } else {
+            favoriteIds.add(entryId);
+        }
+        storage.saveFavorites(Array.from(favoriteIds));
+        renderTrackList();
+    }
+
+    favFilterBtn.addEventListener('click', function () {
+        currentFavFilter = !currentFavFilter;
+        favFilterBtn.classList.toggle('active', currentFavFilter);
+        favFilterBtn.innerHTML = currentFavFilter ? '&#9733;' : '&#9734;';
+        renderTrackList();
+    });
+
     // --- Get filtered & sorted entries ---
     function getFilteredEntries() {
         var query = librarySearch.value.trim().toLowerCase();
@@ -205,6 +228,8 @@
                 var subfolder = getSubfolder(entry.relativePath);
                 if (subfolder !== currentFolderFilter) return false;
             }
+            // Favorites filter
+            if (currentFavFilter && !favoriteIds.has(entry.id)) return false;
             return true;
         });
         return sortEntries(filtered, settings.sortOrder);
@@ -290,9 +315,20 @@
 
             li.appendChild(info);
 
+            // Favorite star (always visible)
+            var favBtn = document.createElement('button');
+            favBtn.className = 'fav-btn' + (favoriteIds.has(entry.id) ? ' favorited' : '');
+            favBtn.innerHTML = favoriteIds.has(entry.id) ? '&#9733;' : '&#9734;';
+            favBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                toggleFavorite(entry.id);
+            });
+
             if (available) {
                 var actions = document.createElement('div');
                 actions.className = 'track-actions';
+
+                actions.appendChild(favBtn);
 
                 // Add to playlist button
                 var addBtn = document.createElement('button');
@@ -309,7 +345,16 @@
                 moreBtn.innerHTML = '\u22EF';
                 moreBtn.addEventListener('click', function (e) {
                     e.stopPropagation();
+                    var isFav = favoriteIds.has(entry.id);
                     AM.openBottomSheet(getDisplayName(entry.filename), [
+                        {
+                            icon: isFav ? '\u2605' : '\u2606',
+                            label: isFav ? 'Unfavorite' : 'Favorite',
+                            action: function () {
+                                toggleFavorite(entry.id);
+                                AM.showToast(favoriteIds.has(entry.id) ? 'Added to favorites' : 'Removed from favorites');
+                            }
+                        },
                         {
                             icon: '\u23ED',
                             label: 'Play Next',
@@ -346,10 +391,14 @@
                     playFromLibrary(entry.id);
                 });
             } else {
+                var acts = document.createElement('div');
+                acts.className = 'track-actions';
+                acts.appendChild(favBtn);
                 var badge = document.createElement('span');
                 badge.className = 'unavailable-label';
                 badge.textContent = 'unavailable';
-                li.appendChild(badge);
+                acts.appendChild(badge);
+                li.appendChild(acts);
             }
 
             libraryTrackList.appendChild(li);
@@ -421,6 +470,8 @@
         getSubfolder: getSubfolder,
         updateDuration: updateDuration,
         markPlayed: markPlayed,
+        isFavorite: function (id) { return favoriteIds.has(id); },
+        toggleFavorite: toggleFavorite,
         triggerFileInput: triggerFileInput,
         refresh: updateLibraryUI,
         clearLibrary: function () {
