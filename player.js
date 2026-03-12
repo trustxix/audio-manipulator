@@ -47,6 +47,7 @@
     // --- DOM refs ---
     var playBtn = document.getElementById('playBtn');
     var playIcon = document.getElementById('playIcon');
+    var restartBtn = document.getElementById('restartBtn');
     var prevBtn = document.getElementById('prevBtn');
     var nextBtn = document.getElementById('nextBtn');
     var rateSlider = document.getElementById('rateSlider');
@@ -410,8 +411,9 @@
     }
 
     function updateNavButtons() {
+        restartBtn.disabled = !audioBuffer;
         if (AM.queue) {
-            prevBtn.disabled = !AM.queue.hasPrev() && !(audioBuffer && getCurrentBufferPosition() > 3);
+            prevBtn.disabled = !AM.queue.hasPrev();
             nextBtn.disabled = !AM.queue.hasNext();
         } else {
             prevBtn.disabled = true;
@@ -442,34 +444,24 @@
         }
     });
 
-    // Prev (restart or previous track)
-    prevBtn.addEventListener('click', function () {
+    // Restart track from beginning
+    restartBtn.addEventListener('click', function () {
         if (!audioBuffer) return;
-        var pos = getCurrentBufferPosition();
-        if (pos > 3) {
-            // Restart current track
-            var wasPlaying = isPlaying;
-            stopPlayback();
-            bufferOffset = 0;
-            seekSlider.value = 0;
-            currentTimeEl.textContent = '0:00';
-            miniPlayerProgress.style.width = '0%';
-            if (wasPlaying) {
-                startPlayback();
-            }
-        } else if (AM.queue && AM.queue.hasPrev()) {
+        var wasPlaying = isPlaying;
+        stopPlayback();
+        bufferOffset = 0;
+        seekSlider.value = 0;
+        currentTimeEl.textContent = '0:00';
+        miniPlayerProgress.style.width = '0%';
+        if (wasPlaying) {
+            startPlayback();
+        }
+    });
+
+    // Prev track
+    prevBtn.addEventListener('click', function () {
+        if (AM.queue && AM.queue.hasPrev()) {
             AM.queue.playPrev();
-        } else {
-            // Restart from beginning
-            var wasPlaying2 = isPlaying;
-            stopPlayback();
-            bufferOffset = 0;
-            seekSlider.value = 0;
-            currentTimeEl.textContent = '0:00';
-            miniPlayerProgress.style.width = '0%';
-            if (wasPlaying2) {
-                startPlayback();
-            }
         }
     });
 
