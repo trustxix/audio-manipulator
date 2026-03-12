@@ -803,6 +803,26 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 /* Folder view headers */
+/* Clipping indicator */
+.clip-indicator {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    color: #ff453a;
+    background: rgba(255, 69, 58, 0.15);
+    padding: 1px 5px;
+    border-radius: 3px;
+    letter-spacing: 0.5px;
+    opacity: 0;
+    transition: opacity 0.1s ease;
+    vertical-align: middle;
+    margin-left: 4px;
+}
+
+.clip-indicator.active {
+    opacity: 1;
+}
+
 .folder-header {
     display: flex;
     align-items: center;

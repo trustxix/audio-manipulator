@@ -233,7 +233,7 @@
                     </div>
                     <div class="setting-description">Clears settings, library, and all playlists.</div>
                 </div>
-                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v46</div>
+                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v47</div>
             </div>
         </div>
 
@@ -382,7 +382,7 @@
             <div class="control-group" id="volumeGroup" data-group="volume">
                 <div class="control-header">
                     <span class="collapse-chevron">&#9660;</span>
-                    <span class="control-label">Volume</span>
+                    <span class="control-label">Volume <span class="clip-indicator" id="clipIndicator" title="Clipping!">CLIP</span> <button class="info-btn" data-info-title="Clipping Indicator" data-info="Flashes red when the audio output exceeds 0 dBFS (full scale). This means the signal is being distorted. Lower the volume or enable the limiter to prevent clipping.">i</button></span>
                     <span class="control-value" id="volumeValue">80%</span>
                 </div>
                 <input type="range" id="volumeSlider" min="0" max="2" step="0.01" value="0.8">

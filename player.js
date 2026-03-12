@@ -44,6 +44,10 @@
     var abLoopState = 0;         // 0=off, 1=A set, 2=looping
     var isNormalized = false;
     var preNormalizeVolume = 0;
+    var analyserNode = null;      // AnalyserNode for clip detection
+    var analyserData = null;      // Float32Array for time-domain data
+    var clipIndicatorEl = null;
+    var clipHoldTimer = null;
 
     // Current track metadata (from library entry)
     var currentTrackId = null;
@@ -206,6 +210,12 @@
             // Mono downmix node — forces output to 1 channel
             monoNode = audioCtx.createChannelMerger(1);
 
+            // Analyser for clipping detection
+            analyserNode = audioCtx.createAnalyser();
+            analyserNode.fftSize = 2048;
+            analyserData = new Float32Array(analyserNode.fftSize);
+            clipIndicatorEl = document.getElementById('clipIndicator');
+
             // Route all audio through an <audio> element via MediaStreamDestination.
             // This forces iOS into "playback" audio session — bypasses mute switch.
             mediaStreamDest = audioCtx.createMediaStreamDestination();
@@ -252,6 +262,7 @@
         eqFilters.forEach(function (f) { f.disconnect(); });
         if (limiterNode) limiterNode.disconnect();
         if (monoNode) monoNode.disconnect();
+        if (analyserNode) analyserNode.disconnect();
 
         // Use mediaStreamDest if available (iOS mute-switch bypass), else fallback
         var destination = mediaStreamDest || audioCtx.destination;
@@ -282,8 +293,10 @@
         if (settings.monoEnabled && monoNode) {
             lastNode.connect(monoNode, 0, 0);
             monoNode.connect(destination);
+            if (analyserNode) monoNode.connect(analyserNode);
         } else {
             lastNode.connect(destination);
+            if (analyserNode) lastNode.connect(analyserNode);
         }
     }
 
@@ -341,6 +354,22 @@
             bufferOffset = abLoopA;
             startPlayback();
             return;
+        }
+
+        // Clipping detection
+        if (isPlaying && analyserNode && analyserData && clipIndicatorEl) {
+            analyserNode.getFloatTimeDomainData(analyserData);
+            var clipping = false;
+            for (var ci = 0; ci < analyserData.length; ci++) {
+                if (Math.abs(analyserData[ci]) >= 1.0) { clipping = true; break; }
+            }
+            if (clipping) {
+                clipIndicatorEl.classList.add('active');
+                clearTimeout(clipHoldTimer);
+                clipHoldTimer = setTimeout(function () {
+                    if (clipIndicatorEl) clipIndicatorEl.classList.remove('active');
+                }, 500);
+            }
         }
 
         if (isPlaying) {
