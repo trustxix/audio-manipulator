@@ -383,10 +383,27 @@
             }
         });
 
-        // Explicitly clear seek handlers so iOS shows track skip buttons
-        // instead of 10-second skip buttons
-        try { navigator.mediaSession.setActionHandler('seekforward', null); } catch (e) {}
-        try { navigator.mediaSession.setActionHandler('seekbackward', null); } catch (e) {}
+        // iOS may show seek-forward/backward buttons on the lock screen.
+        // Wire them to next/prev so they're functional regardless.
+        try {
+            navigator.mediaSession.setActionHandler('seekforward', function () {
+                if (AM.queue && AM.queue.hasNext()) {
+                    AM.queue.playNext();
+                }
+            });
+        } catch (e) {}
+        try {
+            navigator.mediaSession.setActionHandler('seekbackward', function () {
+                if (AM.queue && AM.queue.hasPrev()) {
+                    AM.queue.playPrev();
+                } else if (audioBuffer) {
+                    var wasPlaying = isPlaying;
+                    stopPlayback();
+                    bufferOffset = 0;
+                    if (wasPlaying) startPlayback();
+                }
+            });
+        } catch (e) {}
     }
 
     setupMediaSessionHandlers();
