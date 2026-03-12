@@ -111,6 +111,14 @@
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Default Repeat <button class="info-btn" data-info-title="Repeat Mode" data-info="Off: stops after the last track. Repeat All: loops the entire queue. Repeat One: loops the current track endlessly.">i</button></span>
+                        <select class="setting-select" id="repeatSelect">
+                            <option value="off">Off</option>
+                            <option value="all">Repeat All</option>
+                            <option value="one">Repeat One</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="settings-section">
@@ -192,7 +200,7 @@
                     </div>
                     <div class="setting-description">Clears settings, library, and all playlists.</div>
                 </div>
-                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v25</div>
+                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v26</div>
             </div>
         </div>
 
@@ -261,6 +269,9 @@
                 </button>
                 <button class="transport-btn" id="nextBtn" disabled>
                     <span class="icon">&#9197;</span>
+                </button>
+                <button class="transport-btn repeat-btn" id="repeatBtn" title="Repeat">
+                    <span class="icon" id="repeatIcon">&#128257;</span>
                 </button>
             </div>
 

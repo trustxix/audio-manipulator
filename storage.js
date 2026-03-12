@@ -54,7 +54,8 @@
         boostWarning: true,
         eqEnabled: true,
         eqBands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        monoEnabled: false
+        monoEnabled: false,
+        repeatMode: 'off'
     };
 
     window.AM = window.AM || {};

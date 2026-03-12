@@ -71,6 +71,13 @@
         }
     }
 
+    function playFirst() {
+        if (trackIds.length > 0) {
+            currentIndex = 0;
+            playCurrentTrack(true);
+        }
+    }
+
     // --- Insert / Append ---
     function insertNext(entryId) {
         if (currentIndex === -1) {
@@ -341,6 +348,7 @@
         hasPrev: hasPrev,
         playNext: playNext,
         playPrev: playPrev,
+        playFirst: playFirst,
         insertNext: insertNext,
         addToEnd: addToEnd,
         removeFromQueue: removeFromQueue,

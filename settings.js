@@ -18,6 +18,7 @@
     var ceilingControls = document.getElementById('ceilingControls');
     var boostWarningToggle = document.getElementById('boostWarningToggle');
     var monoToggle = document.getElementById('monoToggle');
+    var repeatSelect = document.getElementById('repeatSelect');
     var settingsLoadBtn = document.getElementById('settingsLoadBtn');
     var clearLibraryBtn = document.getElementById('clearLibraryBtn');
     var libraryStats = document.getElementById('libraryStats');
@@ -34,6 +35,7 @@
         ceilingControls.classList.toggle('disabled', !settings.limiterEnabled);
         boostWarningToggle.checked = settings.boostWarning;
         monoToggle.checked = settings.monoEnabled;
+        repeatSelect.value = settings.repeatMode;
     }
 
     applySettingsToUI();
@@ -76,6 +78,12 @@
         settings.monoEnabled = monoToggle.checked;
         storage.saveSettings(settings);
         player.updateAudioChain();
+    });
+
+    repeatSelect.addEventListener('change', function () {
+        settings.repeatMode = repeatSelect.value;
+        storage.saveSettings(settings);
+        player.updateRepeatUI();
     });
 
     // --- Load folder from settings ---

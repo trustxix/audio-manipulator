@@ -50,6 +50,8 @@
     var playIcon = document.getElementById('playIcon');
     var restartBtn = document.getElementById('restartBtn');
     var prevBtn = document.getElementById('prevBtn');
+    var repeatBtn = document.getElementById('repeatBtn');
+    var repeatIcon = document.getElementById('repeatIcon');
     var nextBtn = document.getElementById('nextBtn');
     var rateSlider = document.getElementById('rateSlider');
     var rateValue = document.getElementById('rateValue');
@@ -306,9 +308,19 @@
                     currentTimeEl.textContent = '0:00';
                     if (animFrameId) cancelAnimationFrame(animFrameId);
 
+                    // Repeat one: restart the same track
+                    if (settings.repeatMode === 'one') {
+                        startPlayback();
+                        return;
+                    }
+
                     // Auto-advance to next track in queue
-                    if (settings.autoplay && AM.queue && AM.queue.hasNext()) {
-                        AM.queue.playNext();
+                    if (settings.autoplay && AM.queue) {
+                        if (AM.queue.hasNext()) {
+                            AM.queue.playNext();
+                        } else if (settings.repeatMode === 'all') {
+                            AM.queue.playFirst();
+                        }
                     }
                 }
             };
@@ -434,6 +446,34 @@
     }
 
     setupMediaSessionHandlers();
+
+    // --- Repeat mode button ---
+    function updateRepeatUI() {
+        repeatBtn.classList.remove('active', 'active-one');
+        if (settings.repeatMode === 'all') {
+            repeatBtn.classList.add('active');
+            repeatIcon.innerHTML = '&#128257;';  // 🔁
+        } else if (settings.repeatMode === 'one') {
+            repeatBtn.classList.add('active-one');
+            repeatIcon.innerHTML = '&#128258;';  // 🔂
+        } else {
+            repeatIcon.innerHTML = '&#128257;';  // 🔁
+        }
+    }
+
+    updateRepeatUI();
+
+    repeatBtn.addEventListener('click', function () {
+        if (settings.repeatMode === 'off') {
+            settings.repeatMode = 'all';
+        } else if (settings.repeatMode === 'all') {
+            settings.repeatMode = 'one';
+        } else {
+            settings.repeatMode = 'off';
+        }
+        AM.storage.saveSettings(settings);
+        updateRepeatUI();
+    });
 
     function showMiniPlayer() {
         if (!miniPlayerVisible) {
@@ -677,9 +717,11 @@
             updateFreqLabelColors();
             updateAudioChain();
             updateBoostWarning();
+            updateRepeatUI();
         },
         updateAudioChain: updateAudioChain,
         updateBoostWarning: updateBoostWarning,
+        updateRepeatUI: updateRepeatUI,
         hideMiniPlayer: function () {
             miniPlayer.classList.remove('visible');
             miniPlayerVisible = false;
