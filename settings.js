@@ -22,6 +22,8 @@
     var repeatSelect = document.getElementById('repeatSelect');
     var introSkipSelect = document.getElementById('introSkipSelect');
     var outroSkipSelect = document.getElementById('outroSkipSelect');
+    var fadeInSelect = document.getElementById('fadeInSelect');
+    var fadeOutSelect = document.getElementById('fadeOutSelect');
     var settingsLoadBtn = document.getElementById('settingsLoadBtn');
     var clearLibraryBtn = document.getElementById('clearLibraryBtn');
     var libraryStats = document.getElementById('libraryStats');
@@ -42,6 +44,8 @@
         repeatSelect.value = settings.repeatMode;
         introSkipSelect.value = settings.introSkip || 0;
         outroSkipSelect.value = settings.outroSkip || 0;
+        fadeInSelect.value = settings.fadeIn || 0;
+        fadeOutSelect.value = settings.fadeOut || 0;
     }
 
     applySettingsToUI();
@@ -96,6 +100,16 @@
         settings.repeatMode = repeatSelect.value;
         storage.saveSettings(settings);
         player.updateRepeatUI();
+    });
+
+    fadeInSelect.addEventListener('change', function () {
+        settings.fadeIn = parseInt(fadeInSelect.value);
+        storage.saveSettings(settings);
+    });
+
+    fadeOutSelect.addEventListener('change', function () {
+        settings.fadeOut = parseInt(fadeOutSelect.value);
+        storage.saveSettings(settings);
     });
 
     introSkipSelect.addEventListener('change', function () {

@@ -164,6 +164,28 @@
                         </select>
                     </div>
                     <div class="setting-row">
+                        <span class="setting-label">Fade In <button class="info-btn" data-info-title="Fade In" data-info="Gradually increases volume from silence at the beginning of each track over the specified duration. Creates a smooth entrance.">i</button></span>
+                        <select class="setting-select" id="fadeInSelect">
+                            <option value="0">Off</option>
+                            <option value="1">1s</option>
+                            <option value="2">2s</option>
+                            <option value="3">3s</option>
+                            <option value="5">5s</option>
+                            <option value="10">10s</option>
+                        </select>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Fade Out <button class="info-btn" data-info-title="Fade Out" data-info="Gradually decreases volume to silence at the end of each track over the specified duration. Creates a smooth exit before advancing to the next track.">i</button></span>
+                        <select class="setting-select" id="fadeOutSelect">
+                            <option value="0">Off</option>
+                            <option value="1">1s</option>
+                            <option value="2">2s</option>
+                            <option value="3">3s</option>
+                            <option value="5">5s</option>
+                            <option value="10">10s</option>
+                        </select>
+                    </div>
+                    <div class="setting-row">
                         <span class="setting-label">Default Repeat <button class="info-btn" data-info-title="Repeat Mode" data-info="Off: stops after the last track. Repeat All: loops the entire queue. Repeat One: loops the current track endlessly.">i</button></span>
                         <select class="setting-select" id="repeatSelect">
                             <option value="off">Off</option>
@@ -265,7 +287,7 @@
                     </div>
                     <div class="setting-description">Clears settings, library, and all playlists.</div>
                 </div>
-                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v51</div>
+                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v52</div>
             </div>
         </div>
 

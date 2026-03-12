@@ -44,6 +44,7 @@
     var abLoopState = 0;         // 0=off, 1=A set, 2=looping
     var isNormalized = false;
     var preNormalizeVolume = 0;
+    var fadeGainNode = null;       // GainNode for fade in/out (separate from user volume)
     var lpFilterNode = null;       // BiquadFilterNode lowpass
     var hpFilterNode = null;       // BiquadFilterNode highpass
     var stereoWidthNode = null;    // ScriptProcessorNode for M/S stereo width
@@ -220,6 +221,10 @@
             // Mono downmix node — forces output to 1 channel
             monoNode = audioCtx.createChannelMerger(1);
 
+            // Fade gain node (separate from user volume)
+            fadeGainNode = audioCtx.createGain();
+            fadeGainNode.gain.value = 1.0;
+
             // LP/HP sweep filters
             lpFilterNode = audioCtx.createBiquadFilter();
             lpFilterNode.type = 'lowpass';
@@ -295,6 +300,7 @@
         if (!gainNode || !audioCtx) return;
 
         gainNode.disconnect();
+        if (fadeGainNode) fadeGainNode.disconnect();
         if (pannerNode) pannerNode.disconnect();
         eqFilters.forEach(function (f) { f.disconnect(); });
         if (lpFilterNode) lpFilterNode.disconnect();
@@ -307,8 +313,13 @@
         // Use mediaStreamDest if available (iOS mute-switch bypass), else fallback
         var destination = mediaStreamDest || audioCtx.destination;
 
-        // Chain: gain → pan → EQ → limiter → mono → destination
+        // Chain: gain → fadeGain → pan → EQ → filters → limiter → stereoWidth → mono → destination
         var lastNode = gainNode;
+
+        if (fadeGainNode) {
+            lastNode.connect(fadeGainNode);
+            lastNode = fadeGainNode;
+        }
 
         if (pannerNode) {
             pannerNode.pan.value = settings.panValue || 0;
@@ -505,6 +516,29 @@
             sourceNode.start(0, bufferOffset);
             segmentStartTime = audioCtx.currentTime;
             isPlaying = true;
+
+            // Apply fade-in
+            var fadeIn = settings.fadeIn || 0;
+            if (fadeIn > 0 && fadeGainNode && bufferOffset < fadeIn) {
+                fadeGainNode.gain.cancelScheduledValues(audioCtx.currentTime);
+                fadeGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                fadeGainNode.gain.linearRampToValueAtTime(1.0, audioCtx.currentTime + (fadeIn - bufferOffset));
+            } else if (fadeGainNode) {
+                fadeGainNode.gain.cancelScheduledValues(audioCtx.currentTime);
+                fadeGainNode.gain.setValueAtTime(1.0, audioCtx.currentTime);
+            }
+
+            // Schedule fade-out
+            var fadeOut = settings.fadeOut || 0;
+            if (fadeOut > 0 && fadeGainNode && audioBuffer) {
+                var remaining = audioBuffer.duration - bufferOffset;
+                if (remaining > fadeOut) {
+                    var fadeStartTime = audioCtx.currentTime + (remaining - fadeOut) / currentRate;
+                    fadeGainNode.gain.setValueAtTime(1.0, fadeStartTime);
+                    fadeGainNode.gain.linearRampToValueAtTime(0, fadeStartTime + fadeOut / currentRate);
+                }
+            }
+
             updatePlayIcons(true);
             showMiniPlayer();
             updateSeekUI();
