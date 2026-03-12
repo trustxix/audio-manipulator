@@ -287,7 +287,7 @@
                     </div>
                     <div class="setting-description">Clears settings, library, and all playlists.</div>
                 </div>
-                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v54</div>
+                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v55</div>
             </div>
         </div>
 
@@ -443,6 +443,19 @@
                 <div class="range-labels">
                     <span>0%</span>
                     <span>200%</span>
+                </div>
+            </div>
+
+            <div class="control-group" data-group="distortion">
+                <div class="control-header">
+                    <span class="collapse-chevron">&#9660;</span>
+                    <span class="control-label">Distortion <button class="info-btn" data-info-title="Distortion / Saturation" data-info="Adds harmonic distortion to the audio signal. Low values produce warm saturation, higher values create aggressive distortion. Uses a waveshaper curve with 4x oversampling for clean harmonics.">i</button></span>
+                    <span class="control-value" id="distortionValue">Off</span>
+                </div>
+                <input type="range" id="distortionSlider" min="0" max="100" step="1" value="0">
+                <div class="range-labels">
+                    <span>Clean</span>
+                    <span>Heavy</span>
                 </div>
             </div>
 

@@ -44,6 +44,8 @@
     var abLoopState = 0;         // 0=off, 1=A set, 2=looping
     var isNormalized = false;
     var preNormalizeVolume = 0;
+    var distortionNode = null;     // WaveShaperNode for distortion/saturation
+    var distortionDrive = 0;       // 0 = off, 1-100 = drive amount
     var fadeGainNode = null;       // GainNode for fade in/out (separate from user volume)
     var lpFilterNode = null;       // BiquadFilterNode lowpass
     var hpFilterNode = null;       // BiquadFilterNode highpass
@@ -93,6 +95,8 @@
     var panValueEl = document.getElementById('panValue');
     var stereoWidthSlider = document.getElementById('stereoWidthSlider');
     var stereoWidthValueEl = document.getElementById('stereoWidthValue');
+    var distortionSlider = document.getElementById('distortionSlider');
+    var distortionValueEl = document.getElementById('distortionValue');
     var lpFilterSlider = document.getElementById('lpFilterSlider');
     var lpFilterFreqEl = document.getElementById('lpFilterFreq');
     var hpFilterSlider = document.getElementById('hpFilterSlider');
@@ -221,6 +225,10 @@
             // Mono downmix node — forces output to 1 channel
             monoNode = audioCtx.createChannelMerger(1);
 
+            // Distortion / saturation
+            distortionNode = audioCtx.createWaveShaper();
+            distortionNode.oversample = '4x';
+
             // Fade gain node (separate from user volume)
             fadeGainNode = audioCtx.createGain();
             fadeGainNode.gain.value = 1.0;
@@ -303,6 +311,7 @@
         if (fadeGainNode) fadeGainNode.disconnect();
         if (pannerNode) pannerNode.disconnect();
         eqFilters.forEach(function (f) { f.disconnect(); });
+        if (distortionNode) distortionNode.disconnect();
         if (lpFilterNode) lpFilterNode.disconnect();
         if (hpFilterNode) hpFilterNode.disconnect();
         if (limiterNode) limiterNode.disconnect();
@@ -333,6 +342,12 @@
                 eqFilters[i].connect(eqFilters[i + 1]);
             }
             lastNode = eqFilters[eqFilters.length - 1];
+        }
+
+        // Distortion (only when drive > 0)
+        if (distortionNode && distortionDrive > 0) {
+            lastNode.connect(distortionNode);
+            lastNode = distortionNode;
         }
 
         // LP/HP sweep filters (only when active)
@@ -951,6 +966,32 @@
         stereoWidthValueEl.textContent = pct + '%';
         settings.stereoWidth = stereoWidthValue;
         AM.storage.saveSettings(settings);
+        updateAudioChain();
+    });
+
+    // Distortion / saturation
+    function makeDistortionCurve(amount) {
+        var samples = 44100;
+        var curve = new Float32Array(samples);
+        var deg = Math.PI / 180;
+        var k = amount;
+        for (var i = 0; i < samples; i++) {
+            var x = (i * 2) / samples - 1;
+            curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+        }
+        return curve;
+    }
+
+    distortionSlider.addEventListener('input', function () {
+        distortionDrive = parseInt(distortionSlider.value);
+        distortionValueEl.textContent = distortionDrive === 0 ? 'Off' : distortionDrive + '%';
+        if (distortionNode) {
+            if (distortionDrive > 0) {
+                distortionNode.curve = makeDistortionCurve(distortionDrive * 4);
+            } else {
+                distortionNode.curve = null;
+            }
+        }
         updateAudioChain();
     });
 
