@@ -253,6 +253,17 @@
         miniPlayerTime.textContent = formatTime(pos);
         miniPlayerProgress.style.width = ((pos / audioBuffer.duration) * 100) + '%';
 
+        // Update lock screen position (throttled — only every ~1s)
+        if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
+            try {
+                navigator.mediaSession.setPositionState({
+                    duration: audioBuffer.duration,
+                    playbackRate: currentRate,
+                    position: Math.min(pos, audioBuffer.duration)
+                });
+            } catch (e) {}
+        }
+
         if (isPlaying) {
             animFrameId = requestAnimationFrame(updateSeekUI);
         }
@@ -341,7 +352,64 @@
             playIcon.innerHTML = '&#9654;';
             miniPlayerPlayIcon.innerHTML = '&#9654;';
         }
+        updateMediaSessionState(playing);
     }
+
+    // --- Media Session API (lock screen controls) ---
+    function updateMediaSession(trackName, trackSub) {
+        if (!('mediaSession' in navigator)) return;
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: trackName,
+            artist: trackSub || 'Audio Manipulator'
+        });
+    }
+
+    function updateMediaSessionState(playing) {
+        if (!('mediaSession' in navigator)) return;
+        navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+    }
+
+    function setupMediaSessionHandlers() {
+        if (!('mediaSession' in navigator)) return;
+
+        navigator.mediaSession.setActionHandler('play', function () {
+            if (audioBuffer && !isPlaying) startPlayback();
+        });
+        navigator.mediaSession.setActionHandler('pause', function () {
+            if (isPlaying) pausePlayback();
+        });
+        navigator.mediaSession.setActionHandler('previoustrack', function () {
+            if (AM.queue && AM.queue.hasPrev()) {
+                AM.queue.playPrev();
+            } else if (audioBuffer) {
+                // Restart current track
+                var wasPlaying = isPlaying;
+                stopPlayback();
+                bufferOffset = 0;
+                if (wasPlaying) startPlayback();
+            }
+        });
+        navigator.mediaSession.setActionHandler('nexttrack', function () {
+            if (AM.queue && AM.queue.hasNext()) {
+                AM.queue.playNext();
+            }
+        });
+        navigator.mediaSession.setActionHandler('seekto', function (details) {
+            if (!audioBuffer) return;
+            bufferOffset = details.seekTime;
+            if (isPlaying) {
+                sourceNode.onended = null;
+                sourceNode.stop();
+                sourceNode = null;
+                startPlayback();
+            } else {
+                seekSlider.value = Math.round((bufferOffset / audioBuffer.duration) * 1000);
+                currentTimeEl.textContent = formatTime(bufferOffset);
+            }
+        });
+    }
+
+    setupMediaSessionHandlers();
 
     function showMiniPlayer() {
         if (!miniPlayerVisible) {
@@ -388,6 +456,9 @@
 
                     // Update nav buttons
                     updateNavButtons();
+
+                    // Update lock screen metadata
+                    updateMediaSession(trackName, trackSub);
 
                     // Write duration back to library entry
                     if (AM.library && AM.library.updateDuration) {
