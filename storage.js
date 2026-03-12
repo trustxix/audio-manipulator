@@ -53,7 +53,8 @@
         limiterCeiling: -1,
         boostWarning: true,
         eqEnabled: true,
-        eqBands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        eqBands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        monoEnabled: false
     };
 
     window.AM = window.AM || {};

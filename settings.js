@@ -17,6 +17,7 @@
     var ceilingValue = document.getElementById('ceilingValue');
     var ceilingControls = document.getElementById('ceilingControls');
     var boostWarningToggle = document.getElementById('boostWarningToggle');
+    var monoToggle = document.getElementById('monoToggle');
     var settingsLoadBtn = document.getElementById('settingsLoadBtn');
     var clearLibraryBtn = document.getElementById('clearLibraryBtn');
     var libraryStats = document.getElementById('libraryStats');
@@ -32,6 +33,7 @@
         ceilingValue.textContent = settings.limiterCeiling.toFixed(1) + ' dB';
         ceilingControls.classList.toggle('disabled', !settings.limiterEnabled);
         boostWarningToggle.checked = settings.boostWarning;
+        monoToggle.checked = settings.monoEnabled;
     }
 
     applySettingsToUI();
@@ -68,6 +70,12 @@
         settings.boostWarning = boostWarningToggle.checked;
         storage.saveSettings(settings);
         player.updateBoostWarning();
+    });
+
+    monoToggle.addEventListener('change', function () {
+        settings.monoEnabled = monoToggle.checked;
+        storage.saveSettings(settings);
+        player.updateAudioChain();
     });
 
     // --- Load folder from settings ---

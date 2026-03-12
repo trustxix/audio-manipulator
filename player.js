@@ -24,6 +24,7 @@
     var gainNode = null;
     var limiterNode = null;
     var eqFilters = [];
+    var monoNode = null;         // ChannelMergerNode for mono downmix
     var mediaStreamDest = null;  // MediaStreamAudioDestinationNode for iOS mute-switch bypass
     var outputAudioEl = null;    // <audio> element that plays the stream
     var isPlaying = false;
@@ -152,6 +153,9 @@
             limiterNode.attack.value = 0.003;
             limiterNode.release.value = 0.25;
 
+            // Mono downmix node — forces output to 1 channel
+            monoNode = audioCtx.createChannelMerger(1);
+
             // Route all audio through an <audio> element via MediaStreamDestination.
             // This forces iOS into "playback" audio session — bypasses mute switch.
             mediaStreamDest = audioCtx.createMediaStreamDestination();
@@ -196,6 +200,7 @@
         gainNode.disconnect();
         eqFilters.forEach(function (f) { f.disconnect(); });
         if (limiterNode) limiterNode.disconnect();
+        if (monoNode) monoNode.disconnect();
 
         // Use mediaStreamDest if available (iOS mute-switch bypass), else fallback
         var destination = mediaStreamDest || audioCtx.destination;
@@ -213,7 +218,12 @@
         if (settings.limiterEnabled && limiterNode) {
             limiterNode.threshold.value = settings.limiterCeiling;
             lastNode.connect(limiterNode);
-            limiterNode.connect(destination);
+            lastNode = limiterNode;
+        }
+
+        if (settings.monoEnabled && monoNode) {
+            lastNode.connect(monoNode, 0, 0);
+            monoNode.connect(destination);
         } else {
             lastNode.connect(destination);
         }

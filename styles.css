@@ -1407,6 +1407,90 @@ input[type="range"]::-webkit-slider-thumb {
     display: none;
 }
 
+/* === Info Button === */
+.info-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1px solid #555;
+    background: none;
+    color: #555;
+    font-size: 11px;
+    font-style: italic;
+    font-family: Georgia, serif;
+    cursor: pointer;
+    margin-left: 6px;
+    flex-shrink: 0;
+    line-height: 1;
+    padding: 0;
+    vertical-align: middle;
+}
+
+.info-btn:active {
+    background: #333;
+    border-color: #4a9eff;
+    color: #4a9eff;
+}
+
+.info-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+.info-popup.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.info-popup-box {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 20px;
+    max-width: 300px;
+    width: 85%;
+    text-align: center;
+}
+
+.info-popup-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 8px;
+}
+
+.info-popup-text {
+    font-size: 13px;
+    color: #aaa;
+    line-height: 1.5;
+}
+
+.info-popup-close {
+    margin-top: 16px;
+    background: #4a9eff;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 8px 24px;
+    cursor: pointer;
+}
+
 /* === Rename Input Inline === */
 .rename-input {
     background: #1a1a1a;

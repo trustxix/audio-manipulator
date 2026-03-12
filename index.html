@@ -105,40 +105,48 @@
                 <div class="settings-section">
                     <div class="settings-section-title">Playback</div>
                     <div class="setting-row">
-                        <span class="setting-label">Autoplay</span>
+                        <span class="setting-label">Autoplay <button class="info-btn" data-info-title="Autoplay" data-info="Automatically plays the next track in the queue when the current one finishes.">i</button></span>
                         <label class="toggle-switch">
                             <input type="checkbox" id="autoplayToggle" checked>
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
-                    <div class="setting-description">Auto-advance to the next track when the current one ends.</div>
                 </div>
 
                 <div class="settings-section">
                     <div class="settings-section-title">Equalizer</div>
                     <div class="setting-row">
-                        <span class="setting-label">Equalizer</span>
+                        <span class="setting-label">Equalizer <button class="info-btn" data-info-title="Equalizer" data-info="10-band graphic equalizer. Boost or cut specific frequency ranges to shape the sound. When disabled, audio bypasses all EQ filters.">i</button></span>
                         <label class="toggle-switch">
                             <input type="checkbox" id="eqToggle" checked>
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
-                    <div class="setting-description">10-band graphic equalizer. When disabled, audio bypasses all EQ filters.</div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-section-title">Audio</div>
+                    <div class="setting-row">
+                        <span class="setting-label">Mono Downmix <button class="info-btn" data-info-title="Mono Downmix" data-info="Collapses stereo audio into a single mono channel. Useful for checking mixes, single-ear listening, or speakers that only output one channel.">i</button></span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="monoToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
                 </div>
 
                 <div class="settings-section">
                     <div class="settings-section-title">Audio Safety</div>
                     <div class="setting-row">
-                        <span class="setting-label">Limiter</span>
+                        <span class="setting-label">Limiter <button class="info-btn" data-info-title="Limiter" data-info="Brick-wall limiter that prevents audio from exceeding the ceiling level. Protects your ears and speakers from sudden loud peaks.">i</button></span>
                         <label class="toggle-switch">
                             <input type="checkbox" id="limiterToggle" checked>
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
-                    <div class="setting-description">Brick-wall limiter prevents audio from exceeding the ceiling.</div>
                     <div class="ceiling-controls" id="ceilingControls">
                         <div class="setting-row">
-                            <span class="setting-label">Limiter Ceiling</span>
+                            <span class="setting-label">Limiter Ceiling <button class="info-btn" data-info-title="Limiter Ceiling" data-info="The maximum output level in decibels. Audio that exceeds this threshold is compressed down. Lower values are safer. -1 dB is recommended.">i</button></span>
                             <span class="setting-value" id="ceilingValue">-1.0 dB</span>
                         </div>
                         <div class="setting-slider-row">
@@ -150,13 +158,12 @@
                         </div>
                     </div>
                     <div class="setting-row">
-                        <span class="setting-label">Volume Boost Warning</span>
+                        <span class="setting-label">Volume Boost Warning <button class="info-btn" data-info-title="Volume Boost Warning" data-info="Colors the volume slider orange above 100% and red above 150% to warn you when boosting volume beyond normal levels.">i</button></span>
                         <label class="toggle-switch">
                             <input type="checkbox" id="boostWarningToggle" checked>
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
-                    <div class="setting-description">Colors the volume slider orange above 100% and red above 150%.</div>
                 </div>
 
                 <div class="settings-section">
@@ -185,7 +192,7 @@
                     </div>
                     <div class="setting-description">Clears settings, library, and all playlists.</div>
                 </div>
-                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v24</div>
+                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v25</div>
             </div>
         </div>
 
@@ -322,6 +329,15 @@
         <div class="bottom-sheet-handle"></div>
         <div class="playlist-picker-title">Add to Playlist</div>
         <div id="playlistPickerList"></div>
+    </div>
+
+    <!-- === Info Popup === -->
+    <div class="info-popup" id="infoPopup">
+        <div class="info-popup-box">
+            <div class="info-popup-title" id="infoPopupTitle"></div>
+            <div class="info-popup-text" id="infoPopupText"></div>
+            <button class="info-popup-close" id="infoPopupClose">OK</button>
+        </div>
     </div>
 
     <!-- === Toast === -->
@@ -476,6 +492,31 @@
             if (btn) btn.classList.add('active');
             document.getElementById(tabId).classList.add('active');
         };
+
+        // Info popup system
+        (function () {
+            var popup = document.getElementById('infoPopup');
+            var popupTitle = document.getElementById('infoPopupTitle');
+            var popupText = document.getElementById('infoPopupText');
+            var popupClose = document.getElementById('infoPopupClose');
+
+            document.addEventListener('click', function (e) {
+                var btn = e.target.closest('.info-btn');
+                if (!btn) return;
+                e.preventDefault();
+                e.stopPropagation();
+                popupTitle.textContent = btn.getAttribute('data-info-title') || 'Info';
+                popupText.textContent = btn.getAttribute('data-info');
+                popup.classList.add('visible');
+            });
+
+            popupClose.addEventListener('click', function () {
+                popup.classList.remove('visible');
+            });
+            popup.addEventListener('click', function (e) {
+                if (e.target === popup) popup.classList.remove('visible');
+            });
+        })();
 
         // Service Worker
         if ('serviceWorker' in navigator) {
