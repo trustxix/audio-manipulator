@@ -21,11 +21,19 @@
             <div class="tab-view active" id="libraryView">
                 <div class="library-header">
                     <h2>Library</h2>
+                    <button class="select-mode-btn" id="selectModeBtn" style="display:none;">Select</button>
                     <button class="load-folder-btn" id="libraryLoadBtn" style="display:none;">Load Folder</button>
                 </div>
                 <div class="library-empty" id="libraryEmpty">
                     <div class="library-empty-text">No tracks yet</div>
                     <button class="load-folder-btn-large" id="libraryLoadBtnLarge">Load Folder</button>
+                </div>
+                <div class="multi-select-bar" id="multiSelectBar" style="display:none;">
+                    <span id="multiSelectCount">0 selected</span>
+                    <button class="ms-action-btn" id="msAddQueue">Queue</button>
+                    <button class="ms-action-btn" id="msAddPlaylist">Playlist</button>
+                    <button class="ms-action-btn ms-danger" id="msDelete">Delete</button>
+                    <button class="ms-cancel-btn" id="msCancel">&#10005;</button>
                 </div>
                 <div id="libraryContent" style="display:none;">
                     <div class="search-bar-container">
@@ -287,7 +295,7 @@
                     </div>
                     <div class="setting-description">Clears settings, library, and all playlists.</div>
                 </div>
-                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v55</div>
+                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v56</div>
             </div>
         </div>
 

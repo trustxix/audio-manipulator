@@ -36,6 +36,17 @@
     var currentFolderFilter = '';
     var currentFavFilter = false;
 
+    // Multi-select state
+    var selectMode = false;
+    var selectedIds = new Set();
+    var selectModeBtn = document.getElementById('selectModeBtn');
+    var multiSelectBar = document.getElementById('multiSelectBar');
+    var multiSelectCount = document.getElementById('multiSelectCount');
+    var msAddQueue = document.getElementById('msAddQueue');
+    var msAddPlaylist = document.getElementById('msAddPlaylist');
+    var msDelete = document.getElementById('msDelete');
+    var msCancel = document.getElementById('msCancel');
+
     // --- Init UI state ---
     sortSelect.value = settings.sortOrder;
     updateLibraryUI();
@@ -218,6 +229,88 @@
         renderTrackList();
     });
 
+    // --- Multi-select ---
+    function enterSelectMode() {
+        selectMode = true;
+        selectedIds.clear();
+        selectModeBtn.classList.add('active');
+        selectModeBtn.textContent = 'Cancel';
+        multiSelectBar.style.display = '';
+        updateSelectCount();
+        renderTrackList();
+    }
+
+    function exitSelectMode() {
+        selectMode = false;
+        selectedIds.clear();
+        selectModeBtn.classList.remove('active');
+        selectModeBtn.textContent = 'Select';
+        multiSelectBar.style.display = 'none';
+        renderTrackList();
+    }
+
+    function updateSelectCount() {
+        multiSelectCount.textContent = selectedIds.size + ' selected';
+    }
+
+    selectModeBtn.addEventListener('click', function () {
+        if (selectMode) {
+            exitSelectMode();
+        } else {
+            enterSelectMode();
+        }
+    });
+
+    msCancel.addEventListener('click', exitSelectMode);
+
+    msAddQueue.addEventListener('click', function () {
+        if (selectedIds.size === 0) return;
+        selectedIds.forEach(function (id) {
+            if (AM.queue) AM.queue.addToEnd(id);
+        });
+        AM.showToast(selectedIds.size + ' tracks added to queue');
+        exitSelectMode();
+    });
+
+    msAddPlaylist.addEventListener('click', function () {
+        if (selectedIds.size === 0) return;
+        var ids = Array.from(selectedIds);
+        // Use first id to open picker, then add all
+        var playlists = storage.getPlaylists();
+        if (playlists.length === 0) {
+            AM.showToast('Create a playlist first');
+            return;
+        }
+        var options = playlists.map(function (pl) {
+            return {
+                icon: '\u266B',
+                label: pl.name,
+                action: function () {
+                    ids.forEach(function (id) {
+                        if (AM.playlists) AM.playlists.addTrackToPlaylist(pl.id, id);
+                    });
+                    AM.showToast(ids.length + ' tracks added to ' + pl.name);
+                    exitSelectMode();
+                }
+            };
+        });
+        AM.openBottomSheet('Add ' + ids.length + ' tracks to...', options);
+    });
+
+    msDelete.addEventListener('click', function () {
+        if (selectedIds.size === 0) return;
+        if (!confirm('Remove ' + selectedIds.size + ' tracks from library?')) return;
+        selectedIds.forEach(function (id) {
+            libraryEntries = libraryEntries.filter(function (e) { return e.id !== id; });
+            fileMap.delete(id);
+            if (AM.queue) AM.queue.removeTrackId(id);
+        });
+        storage.saveLibrary(libraryEntries);
+        AM.showToast(selectedIds.size + ' tracks removed');
+        exitSelectMode();
+        updateLibraryUI();
+    });
+
     // --- Get filtered & sorted entries ---
     function getFilteredEntries() {
         var query = librarySearch.value.trim().toLowerCase();
@@ -306,6 +399,7 @@
             libraryEmpty.style.display = 'none';
             libraryContent.style.display = '';
             libraryLoadBtn.style.display = '';
+            selectModeBtn.style.display = '';
             updateFolderFilter();
             renderTrackList();
         }
@@ -371,6 +465,14 @@
         var currentId = AM.player.getCurrentTrackId();
         if (entry.id === currentId) {
             li.classList.add('now-playing-row');
+        }
+
+        // Select mode checkbox
+        if (selectMode) {
+            var check = document.createElement('div');
+            check.className = 'select-check' + (selectedIds.has(entry.id) ? ' checked' : '');
+            check.textContent = '\u2713';
+            li.appendChild(check);
         }
 
         var info = document.createElement('div');
@@ -475,8 +577,18 @@
             actions.appendChild(moreBtn);
             li.appendChild(actions);
 
-            // Tap to play
+            // Tap to play or select
             li.addEventListener('click', function () {
+                if (selectMode) {
+                    if (selectedIds.has(entry.id)) {
+                        selectedIds.delete(entry.id);
+                    } else {
+                        selectedIds.add(entry.id);
+                    }
+                    updateSelectCount();
+                    renderTrackList();
+                    return;
+                }
                 playFromLibrary(entry.id);
             });
         } else {
