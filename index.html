@@ -99,7 +99,17 @@
                 <div class="queue-source" id="queueSource"></div>
                 <div class="queue-empty" id="queueEmpty">Queue is empty — play a track from Library or a Playlist to start.</div>
                 <ul class="track-list" id="queueTrackList"></ul>
-                <button class="clear-queue-btn" id="clearQueueBtn" style="display:none;">Clear Queue</button>
+                <div class="queue-actions-row">
+                    <button class="clear-queue-btn" id="clearQueueBtn" style="display:none;">Clear Queue</button>
+                    <button class="save-queue-btn" id="saveQueueBtn" style="display:none;">Save Queue <button class="info-btn" data-info-title="Save Queue" data-info="Saves the current queue as a named snapshot. You can restore it later, even after closing the app. Track IDs are saved — tracks must be loaded from the same folder to restore.">i</button></button>
+                </div>
+                <div id="savedQueuesSection" style="display:none;">
+                    <div class="queue-history-header" id="savedQueuesToggle">
+                        <span>Saved Queues</span>
+                        <span class="history-chevron" id="savedQueuesChevron">&#9660;</span>
+                    </div>
+                    <ul class="track-list" id="savedQueuesList"></ul>
+                </div>
                 <div id="historySection" style="display:none;">
                     <div class="queue-history-header" id="historyToggle">
                         <span>Recently Played</span>
@@ -233,7 +243,7 @@
                     </div>
                     <div class="setting-description">Clears settings, library, and all playlists.</div>
                 </div>
-                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v47</div>
+                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v48</div>
             </div>
         </div>
 

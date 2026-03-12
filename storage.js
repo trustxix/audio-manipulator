@@ -7,7 +7,8 @@
         playlists: 'am-playlists',
         settings: 'am-settings',
         favorites: 'am-favorites',
-        notes: 'am-notes'
+        notes: 'am-notes',
+        savedQueues: 'am-savedQueues'
     };
 
     function safeGet(key, fallback) {
@@ -122,12 +123,21 @@
             return safeSet(KEYS.notes, notes);
         },
 
+        getSavedQueues: function () {
+            return safeGet(KEYS.savedQueues, []);
+        },
+
+        saveSavedQueues: function (queues) {
+            return safeSet(KEYS.savedQueues, queues);
+        },
+
         clearAll: function () {
             safeRemove(KEYS.library);
             safeRemove(KEYS.playlists);
             safeRemove(KEYS.settings);
             safeRemove(KEYS.favorites);
             safeRemove(KEYS.notes);
+            safeRemove(KEYS.savedQueues);
         },
 
         getStorageUsed: function () {

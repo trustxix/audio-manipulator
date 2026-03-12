@@ -1397,8 +1397,14 @@ input[type="range"]::-webkit-slider-thumb {
     padding-right: 20px;
 }
 
+.queue-actions-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+}
+
 .clear-queue-btn {
-    width: 100%;
+    flex: 1;
     padding: 12px;
     background: #141414;
     border: 1px solid #333;
@@ -1406,11 +1412,25 @@ input[type="range"]::-webkit-slider-thumb {
     color: #ff453a;
     font-size: 14px;
     cursor: pointer;
-    margin-top: 16px;
 }
 
 .clear-queue-btn:active {
     background: #2a1a1a;
+}
+
+.save-queue-btn {
+    flex: 1;
+    padding: 12px;
+    background: #141414;
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: #4a9eff;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.save-queue-btn:active {
+    background: #1a1a2a;
 }
 
 .queue-history-header {

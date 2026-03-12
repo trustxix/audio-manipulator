@@ -122,7 +122,8 @@
             playlists: storage.getPlaylists(),
             settings: storage.getSettings(),
             favorites: storage.getFavorites(),
-            notes: storage.getNotes()
+            notes: storage.getNotes(),
+            savedQueues: storage.getSavedQueues()
         };
         var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         var url = URL.createObjectURL(blob);
@@ -155,6 +156,7 @@
                 storage.saveSettings(data.settings);
                 storage.saveFavorites(data.favorites || []);
                 storage.saveNotes(data.notes || {});
+                storage.saveSavedQueues(data.savedQueues || []);
 
                 // Reload state
                 settings = storage.getSettings();

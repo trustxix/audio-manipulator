@@ -472,6 +472,133 @@
         origSetQueue(ids, startIndex, queueSource);
     };
 
+    // --- Save/Load Queue ---
+    var saveQueueBtn = document.getElementById('saveQueueBtn');
+    var savedQueuesSection = document.getElementById('savedQueuesSection');
+    var savedQueuesList = document.getElementById('savedQueuesList');
+    var savedQueuesToggle = document.getElementById('savedQueuesToggle');
+    var savedQueuesChevron = document.getElementById('savedQueuesChevron');
+    var savedQueuesExpanded = false;
+
+    saveQueueBtn.addEventListener('click', function (e) {
+        if (e.target.closest('.info-btn')) return;
+        if (trackIds.length === 0) return;
+        var name = prompt('Queue name:');
+        if (!name || !name.trim()) return;
+        var queues = AM.storage.getSavedQueues();
+        queues.push({
+            id: crypto.randomUUID(),
+            name: name.trim(),
+            trackIds: trackIds.slice(),
+            currentIndex: currentIndex,
+            savedAt: Date.now()
+        });
+        AM.storage.saveSavedQueues(queues);
+        AM.showToast('Queue saved: ' + name.trim());
+        renderSavedQueues();
+    });
+
+    savedQueuesToggle.addEventListener('click', function () {
+        savedQueuesExpanded = !savedQueuesExpanded;
+        savedQueuesChevron.classList.toggle('open', savedQueuesExpanded);
+        savedQueuesList.style.display = savedQueuesExpanded ? '' : 'none';
+        if (savedQueuesExpanded) renderSavedQueues();
+    });
+
+    function renderSavedQueues() {
+        var queues = AM.storage.getSavedQueues();
+        savedQueuesList.innerHTML = '';
+
+        if (queues.length === 0) {
+            savedQueuesSection.style.display = 'none';
+            return;
+        }
+
+        savedQueuesSection.style.display = '';
+        savedQueuesList.style.display = savedQueuesExpanded ? '' : 'none';
+
+        queues.forEach(function (sq) {
+            var li = document.createElement('li');
+            li.className = 'track-row';
+
+            var info = document.createElement('div');
+            info.className = 'track-info';
+
+            var nameEl = document.createElement('div');
+            nameEl.className = 'track-name';
+            nameEl.textContent = sq.name;
+
+            var metaEl = document.createElement('div');
+            metaEl.className = 'track-meta';
+            metaEl.textContent = sq.trackIds.length + ' tracks \u00B7 ' + new Date(sq.savedAt).toLocaleDateString();
+
+            info.appendChild(nameEl);
+            info.appendChild(metaEl);
+            li.appendChild(info);
+
+            var actions = document.createElement('div');
+            actions.className = 'track-actions';
+
+            var moreBtn = document.createElement('button');
+            moreBtn.className = 'track-action-btn';
+            moreBtn.innerHTML = '\u22EF';
+            moreBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                AM.openBottomSheet(sq.name, [
+                    {
+                        icon: '\u25B6',
+                        label: 'Restore Queue',
+                        action: function () {
+                            setQueue(sq.trackIds, sq.currentIndex || 0, 'saved');
+                            AM.showToast('Queue restored: ' + sq.name);
+                        }
+                    },
+                    {
+                        icon: '\u2716',
+                        label: 'Delete',
+                        danger: true,
+                        action: function () {
+                            var all = AM.storage.getSavedQueues();
+                            var filtered = all.filter(function (q) { return q.id !== sq.id; });
+                            AM.storage.saveSavedQueues(filtered);
+                            AM.showToast('Deleted: ' + sq.name);
+                            renderSavedQueues();
+                        }
+                    }
+                ]);
+            });
+            actions.appendChild(moreBtn);
+            li.appendChild(actions);
+
+            // Tap to restore
+            li.addEventListener('click', function () {
+                setQueue(sq.trackIds, sq.currentIndex || 0, 'saved');
+                AM.showToast('Queue restored: ' + sq.name);
+            });
+
+            savedQueuesList.appendChild(li);
+        });
+    }
+
+    // Show saved queues section on render
+    var origRenderQueue2 = renderQueue;
+    renderQueue = function () {
+        origRenderQueue2();
+        // Show save button when queue has tracks
+        saveQueueBtn.style.display = trackIds.length > 0 ? '' : 'none';
+        // Show saved queues section if any exist
+        var queues = AM.storage.getSavedQueues();
+        if (queues.length > 0) {
+            savedQueuesSection.style.display = '';
+            if (savedQueuesExpanded) renderSavedQueues();
+        } else {
+            savedQueuesSection.style.display = 'none';
+        }
+    };
+
+    // Initial render of saved queues
+    renderSavedQueues();
+
     // --- Public API ---
     AM.queue = {
         setQueue: setQueue,
