@@ -127,6 +127,25 @@
             color: #666;
         }
 
+        .seek-group {
+            background: #141414;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .seek-time {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 6px;
+        }
+
+        .seek-time span {
+            font-size: 12px;
+            color: #888;
+            font-family: 'SF Mono', SFMono-Regular, Menlo, monospace;
+        }
+
         .control-group {
             background: #141414;
             border-radius: 8px;
@@ -209,6 +228,14 @@
         </button>
     </div>
 
+    <div class="seek-group">
+        <input type="range" id="seekSlider" min="0" max="1000" step="1" value="0" disabled>
+        <div class="seek-time">
+            <span id="currentTime">0:00</span>
+            <span id="totalTime">0:00</span>
+        </div>
+    </div>
+
     <div class="control-group">
         <div class="control-header">
             <span class="control-label">Speed / Pitch</span>
@@ -243,6 +270,9 @@
     const rateValue = document.getElementById('rateValue');
     const volumeSlider = document.getElementById('volumeSlider');
     const volumeValue = document.getElementById('volumeValue');
+    const seekSlider = document.getElementById('seekSlider');
+    const currentTimeEl = document.getElementById('currentTime');
+    const totalTimeEl = document.getElementById('totalTime');
 
     let audioCtx = null;
     let audioBuffer = null;
@@ -252,6 +282,8 @@
     let segmentStartTime = 0;
     let bufferOffset = 0;
     let currentRate = 1.0;
+    let isSeeking = false;
+    let animFrameId = null;
 
     filePicker.addEventListener('click', () => fileInput.click());
 
@@ -283,6 +315,10 @@
                     audioBuffer = buffer;
                     fileName.textContent = file.name;
                     playBtn.disabled = false;
+                    seekSlider.disabled = false;
+                    seekSlider.value = 0;
+                    totalTimeEl.textContent = formatTime(buffer.duration);
+                    currentTimeEl.textContent = '0:00';
                     bufferOffset = 0;
                 })
                 .catch(() => {
@@ -294,6 +330,24 @@
         };
         reader.readAsArrayBuffer(file);
     });
+
+    function formatTime(sec) {
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return m + ':' + (s < 10 ? '0' : '') + s;
+    }
+
+    function updateSeekUI() {
+        if (!audioBuffer) return;
+        const pos = getCurrentBufferPosition();
+        currentTimeEl.textContent = formatTime(pos);
+        if (!isSeeking) {
+            seekSlider.value = Math.round((pos / audioBuffer.duration) * 1000);
+        }
+        if (isPlaying) {
+            animFrameId = requestAnimationFrame(updateSeekUI);
+        }
+    }
 
     function getCurrentBufferPosition() {
         if (!isPlaying) return bufferOffset;
@@ -323,6 +377,9 @@
                 isPlaying = false;
                 bufferOffset = 0;
                 playIcon.innerHTML = '&#9654;';
+                seekSlider.value = 0;
+                currentTimeEl.textContent = '0:00';
+                if (animFrameId) cancelAnimationFrame(animFrameId);
             }
         };
 
@@ -330,6 +387,7 @@
         segmentStartTime = audioCtx.currentTime;
         isPlaying = true;
         playIcon.innerHTML = '&#9646;&#9646;';
+        updateSeekUI();
     }
 
     function pausePlayback() {
@@ -343,6 +401,8 @@
         sourceNode = null;
         isPlaying = false;
         playIcon.innerHTML = '&#9654;';
+        if (animFrameId) cancelAnimationFrame(animFrameId);
+        updateSeekUI();
     }
 
     function stopPlayback() {
@@ -354,7 +414,28 @@
         isPlaying = false;
         bufferOffset = 0;
         playIcon.innerHTML = '&#9654;';
+        if (animFrameId) cancelAnimationFrame(animFrameId);
     }
+
+    seekSlider.addEventListener('input', () => {
+        if (!audioBuffer) return;
+        isSeeking = true;
+        const pos = (parseInt(seekSlider.value) / 1000) * audioBuffer.duration;
+        currentTimeEl.textContent = formatTime(pos);
+    });
+
+    seekSlider.addEventListener('change', () => {
+        if (!audioBuffer) return;
+        const pos = (parseInt(seekSlider.value) / 1000) * audioBuffer.duration;
+        bufferOffset = pos;
+        isSeeking = false;
+        if (isPlaying) {
+            sourceNode.onended = null;
+            sourceNode.stop();
+            sourceNode = null;
+            startPlayback();
+        }
+    });
 
     rateSlider.addEventListener('input', () => {
         const pct = parseInt(rateSlider.value);
