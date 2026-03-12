@@ -42,12 +42,13 @@
 
     // --- Folder load ---
     fileInput.addEventListener('change', function (e) {
+        var SUPPORTED_EXT = /\.(wav|mp3|flac|ogg|aac|m4a|opus|wma|aiff|aif)$/i;
         var files = Array.from(e.target.files).filter(function (f) {
-            return f.name.toLowerCase().endsWith('.wav');
+            return SUPPORTED_EXT.test(f.name);
         });
 
         if (files.length === 0) {
-            AM.showToast('No .wav files found');
+            AM.showToast('No supported audio files found');
             return;
         }
 
@@ -216,7 +217,7 @@
     }
 
     function getDisplayName(filename) {
-        return filename.replace(/\.wav$/i, '');
+        return filename.replace(/\.(wav|mp3|flac|ogg|aac|m4a|opus|wma|aiff|aif)$/i, '');
     }
 
     function formatDuration(seconds) {
