@@ -232,7 +232,7 @@
                     </div>
                     <div class="setting-description">Clears settings, library, and all playlists.</div>
                 </div>
-                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v43</div>
+                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v45</div>
             </div>
         </div>
 
@@ -324,8 +324,9 @@
                 </button>
             </div>
 
-            <div class="control-group">
+            <div class="control-group" data-group="speed">
                 <div class="control-header">
+                    <span class="collapse-chevron">&#9660;</span>
                     <span class="control-label">Speed / Pitch</span>
                     <span class="control-value" id="rateValue">100%</span>
                 </div>
@@ -344,8 +345,9 @@
                 </div>
             </div>
 
-            <div class="control-group" id="eqGroup">
+            <div class="control-group" id="eqGroup" data-group="eq">
                 <div class="control-header">
+                    <span class="collapse-chevron">&#9660;</span>
                     <span class="control-label">Equalizer</span>
                     <button class="eq-reset-btn" id="eqReset">Flat</button>
                 </div>
@@ -376,8 +378,9 @@
                 <div class="eq-freq-labels" id="eqFreqLabels"></div>
             </div>
 
-            <div class="control-group" id="volumeGroup">
+            <div class="control-group" id="volumeGroup" data-group="volume">
                 <div class="control-header">
+                    <span class="collapse-chevron">&#9660;</span>
                     <span class="control-label">Volume</span>
                     <span class="control-value" id="volumeValue">80%</span>
                 </div>
@@ -388,8 +391,9 @@
                 </div>
             </div>
 
-            <div class="control-group" id="panGroup">
+            <div class="control-group" id="panGroup" data-group="pan">
                 <div class="control-header">
+                    <span class="collapse-chevron">&#9660;</span>
                     <span class="control-label">Pan <button class="info-btn" data-info-title="Stereo Pan" data-info="Shifts the audio balance between left and right channels. Center (0) plays equally in both ears. Drag left or right to steer audio to one side.">i</button></span>
                     <span class="control-value" id="panValue">C</span>
                 </div>
@@ -676,6 +680,39 @@
                 navigator.vibrate(duration || 10);
             }
         };
+
+        // Collapsible control groups
+        (function () {
+            var settings = window.AM.storage.getSettings();
+            var collapsed = settings.collapsedGroups || [];
+            var groups = document.querySelectorAll('.control-group[data-group]');
+
+            groups.forEach(function (group) {
+                var key = group.dataset.group;
+                if (collapsed.indexOf(key) !== -1) {
+                    group.classList.add('collapsed');
+                }
+
+                var header = group.querySelector('.control-header');
+                header.addEventListener('click', function (e) {
+                    // Don't collapse when clicking info buttons or eq reset
+                    if (e.target.closest('.info-btn') || e.target.closest('.eq-reset-btn')) return;
+                    group.classList.toggle('collapsed');
+
+                    // Persist
+                    var s = window.AM.player.getSettings();
+                    var list = s.collapsedGroups || [];
+                    var idx = list.indexOf(key);
+                    if (group.classList.contains('collapsed')) {
+                        if (idx === -1) list.push(key);
+                    } else {
+                        if (idx !== -1) list.splice(idx, 1);
+                    }
+                    s.collapsedGroups = list;
+                    window.AM.storage.saveSettings(s);
+                });
+            });
+        })();
 
         // Keyboard shortcuts
         document.addEventListener('keydown', function (e) {

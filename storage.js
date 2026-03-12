@@ -59,7 +59,8 @@
         monoEnabled: false,
         repeatMode: 'off',
         hapticEnabled: false,
-        panValue: 0
+        panValue: 0,
+        collapsedGroups: []
     };
 
     window.AM = window.AM || {};

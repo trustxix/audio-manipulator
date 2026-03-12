@@ -417,6 +417,28 @@ input[type="range"]::-webkit-slider-thumb {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 12px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.collapse-chevron {
+    font-size: 10px;
+    color: #555;
+    margin-right: 8px;
+    transition: transform 0.2s ease;
+    display: inline-block;
+}
+
+.control-group.collapsed .collapse-chevron {
+    transform: rotate(-90deg);
+}
+
+.control-group.collapsed .control-header {
+    margin-bottom: 0;
+}
+
+.control-group.collapsed > *:not(.control-header) {
+    display: none;
 }
 
 .control-label {
