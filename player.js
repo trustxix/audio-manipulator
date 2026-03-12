@@ -763,6 +763,9 @@
                         AM.library.updateDuration(trackId, buffer.duration);
                     }
 
+                    // Render cue points for this track
+                    renderCues();
+
                     // Apply intro skip
                     var introSkip = settings.introSkip || 0;
                     if (introSkip > 0 && introSkip < buffer.duration) {
@@ -1200,6 +1203,82 @@
             seekSlider.value = Math.round((bufferOffset / audioBuffer.duration) * 1000);
             currentTimeEl.textContent = formatTime(bufferOffset);
         }
+    });
+
+    // --- Cue Points ---
+    var cueSection = document.getElementById('cueSection');
+    var cueAddBtn = document.getElementById('cueAddBtn');
+    var cueChipsEl = document.getElementById('cueChips');
+    var allCues = AM.storage.getCues();
+
+    function renderCues() {
+        if (!currentTrackId) {
+            cueSection.style.display = 'none';
+            return;
+        }
+        cueSection.style.display = '';
+        var trackCues = allCues[currentTrackId] || [];
+        cueChipsEl.innerHTML = '';
+        trackCues.sort(function (a, b) { return a.time - b.time; });
+        trackCues.forEach(function (cue, idx) {
+            var chip = document.createElement('div');
+            chip.className = 'cue-chip';
+
+            var nameSpan = document.createElement('span');
+            nameSpan.textContent = cue.name;
+            chip.appendChild(nameSpan);
+
+            var timeSpan = document.createElement('span');
+            timeSpan.className = 'cue-time';
+            timeSpan.textContent = formatTime(cue.time);
+            chip.appendChild(timeSpan);
+
+            var delBtn = document.createElement('span');
+            delBtn.className = 'cue-del';
+            delBtn.textContent = '\u2716';
+            delBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                trackCues.splice(idx, 1);
+                if (trackCues.length === 0) {
+                    delete allCues[currentTrackId];
+                } else {
+                    allCues[currentTrackId] = trackCues;
+                }
+                AM.storage.saveCues(allCues);
+                renderCues();
+            });
+            chip.appendChild(delBtn);
+
+            // Tap to jump
+            chip.addEventListener('click', function () {
+                if (!audioBuffer) return;
+                var wasPlaying = isPlaying;
+                if (wasPlaying) {
+                    sourceNode.onended = null;
+                    sourceNode.stop();
+                    sourceNode = null;
+                    isPlaying = false;
+                }
+                bufferOffset = cue.time;
+                seekSlider.value = Math.round((cue.time / audioBuffer.duration) * 1000);
+                currentTimeEl.textContent = formatTime(cue.time);
+                if (wasPlaying) startPlayback();
+            });
+
+            cueChipsEl.appendChild(chip);
+        });
+    }
+
+    cueAddBtn.addEventListener('click', function () {
+        if (!audioBuffer || !currentTrackId) return;
+        var pos = getCurrentBufferPosition();
+        var name = prompt('Cue name:', 'Cue ' + ((allCues[currentTrackId] || []).length + 1));
+        if (!name || !name.trim()) return;
+        if (!allCues[currentTrackId]) allCues[currentTrackId] = [];
+        allCues[currentTrackId].push({ name: name.trim(), time: pos });
+        AM.storage.saveCues(allCues);
+        renderCues();
+        AM.showToast('Cue added at ' + formatTime(pos));
     });
 
     // --- Noise Generator ---

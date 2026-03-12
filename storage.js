@@ -9,7 +9,8 @@
         favorites: 'am-favorites',
         notes: 'am-notes',
         savedQueues: 'am-savedQueues',
-        playbackPresets: 'am-playbackPresets'
+        playbackPresets: 'am-playbackPresets',
+        cues: 'am-cues'
     };
 
     function safeGet(key, fallback) {
@@ -145,6 +146,14 @@
             return safeSet(KEYS.playbackPresets, presets);
         },
 
+        getCues: function () {
+            return safeGet(KEYS.cues, {});
+        },
+
+        saveCues: function (cues) {
+            return safeSet(KEYS.cues, cues);
+        },
+
         clearAll: function () {
             safeRemove(KEYS.library);
             safeRemove(KEYS.playlists);
@@ -153,6 +162,7 @@
             safeRemove(KEYS.notes);
             safeRemove(KEYS.savedQueues);
             safeRemove(KEYS.playbackPresets);
+            safeRemove(KEYS.cues);
         },
 
         getStorageUsed: function () {
