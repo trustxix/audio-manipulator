@@ -126,7 +126,8 @@
                     fileSize: file.size,
                     duration: 0,
                     dateAdded: Date.now(),
-                    lastPlayed: 0
+                    lastPlayed: 0,
+                    playCount: 0
                 };
                 libraryEntries.push(newEntry);
                 fileMap.set(newEntry.id, file);
@@ -149,6 +150,9 @@
                 break;
             case 'newest':
                 sorted.sort(function (a, b) { return b.dateAdded - a.dateAdded; });
+                break;
+            case 'mostplayed':
+                sorted.sort(function (a, b) { return (b.playCount || 0) - (a.playCount || 0); });
                 break;
         }
         return sorted;
@@ -312,7 +316,12 @@
             var meta = document.createElement('div');
             meta.className = 'track-meta';
             var subPath = getSubfolder(entry.relativePath);
-            meta.textContent = (subPath ? subPath + ' \u00B7 ' : '') + formatDuration(entry.duration);
+            var plays = entry.playCount || 0;
+            var metaParts = [];
+            if (subPath) metaParts.push(subPath);
+            metaParts.push(formatDuration(entry.duration));
+            if (plays > 0) metaParts.push(plays + (plays === 1 ? ' play' : ' plays'));
+            meta.textContent = metaParts.join(' \u00B7 ');
 
             info.appendChild(name);
             info.appendChild(meta);
@@ -445,11 +454,12 @@
         }
     }
 
-    // --- Update lastPlayed ---
+    // --- Update lastPlayed and playCount ---
     function markPlayed(entryId) {
         for (var i = 0; i < libraryEntries.length; i++) {
             if (libraryEntries[i].id === entryId) {
                 libraryEntries[i].lastPlayed = Date.now();
+                libraryEntries[i].playCount = (libraryEntries[i].playCount || 0) + 1;
                 storage.saveLibrary(libraryEntries);
                 break;
             }
