@@ -28,6 +28,9 @@
     // Favorites state
     var favoriteIds = new Set(storage.getFavorites());
 
+    // Notes state
+    var trackNotes = storage.getNotes();
+
     // Filter state
     var currentAvailFilter = 'all';
     var currentFolderFilter = '';
@@ -322,6 +325,8 @@
             if (subPath) metaParts.push(subPath);
             metaParts.push(formatDuration(entry.duration));
             if (plays > 0) metaParts.push(plays + (plays === 1 ? ' play' : ' plays'));
+            var note = trackNotes[entry.id];
+            if (note) metaParts.push('\u270E ' + note);
             meta.textContent = metaParts.join(' \u00B7 ');
 
             info.appendChild(name);
@@ -386,6 +391,13 @@
                             }
                         },
                         {
+                            icon: '\u270E',
+                            label: 'Edit Note',
+                            action: function () {
+                                editNote(entry.id);
+                            }
+                        },
+                        {
                             icon: '\u2716',
                             label: 'Remove from Library',
                             danger: true,
@@ -442,6 +454,20 @@
         updateLibraryUI();
     }
 
+    // --- Track notes ---
+    function editNote(entryId) {
+        var current = trackNotes[entryId] || '';
+        var newNote = prompt('Track note:', current);
+        if (newNote === null) return; // cancelled
+        if (newNote.trim()) {
+            trackNotes[entryId] = newNote.trim();
+        } else {
+            delete trackNotes[entryId];
+        }
+        storage.saveNotes(trackNotes);
+        renderTrackList();
+    }
+
     // --- Update duration (called by player after decode) ---
     function updateDuration(entryId, duration) {
         for (var i = 0; i < libraryEntries.length; i++) {
@@ -486,6 +512,8 @@
         updateDuration: updateDuration,
         markPlayed: markPlayed,
         isFavorite: function (id) { return favoriteIds.has(id); },
+        getNote: function (id) { return trackNotes[id] || ''; },
+        editNote: editNote,
         toggleFavorite: toggleFavorite,
         triggerFileInput: triggerFileInput,
         refresh: updateLibraryUI,
