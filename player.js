@@ -406,13 +406,19 @@
         try {
             navigator.mediaSession.setActionHandler('seekbackward', function () {
                 if (!audioBuffer) return;
-                var wasPlaying = isPlaying;
-                stopPlayback();
-                bufferOffset = 0;
-                seekSlider.value = 0;
-                currentTimeEl.textContent = '0:00';
-                miniPlayerProgress.style.width = '0%';
-                if (wasPlaying) startPlayback();
+                var pos = getCurrentBufferPosition();
+                if (pos > 3) {
+                    // Restart current track
+                    var wasPlaying = isPlaying;
+                    stopPlayback();
+                    bufferOffset = 0;
+                    seekSlider.value = 0;
+                    currentTimeEl.textContent = '0:00';
+                    miniPlayerProgress.style.width = '0%';
+                    if (wasPlaying) startPlayback();
+                } else if (AM.queue && AM.queue.hasPrev()) {
+                    AM.queue.playPrev();
+                }
             });
         } catch (e) {}
     }
