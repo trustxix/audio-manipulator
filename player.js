@@ -24,6 +24,8 @@
     var gainNode = null;
     var limiterNode = null;
     var eqFilters = [];
+    var mediaStreamDest = null;  // MediaStreamAudioDestinationNode for iOS mute-switch bypass
+    var outputAudioEl = null;    // <audio> element that plays the stream
     var isPlaying = false;
     var segmentStartTime = 0;
     var bufferOffset = 0;
@@ -149,6 +151,13 @@
             limiterNode.attack.value = 0.003;
             limiterNode.release.value = 0.25;
 
+            // Route all audio through an <audio> element via MediaStreamDestination.
+            // This forces iOS into "playback" audio session — bypasses mute switch.
+            mediaStreamDest = audioCtx.createMediaStreamDestination();
+            outputAudioEl = new Audio();
+            outputAudioEl.setAttribute('playsinline', '');
+            outputAudioEl.srcObject = mediaStreamDest.stream;
+
             updateAudioChain();
         }
         if (audioCtx.state === 'suspended') {
@@ -160,46 +169,7 @@
     // iOS Safari only allows AudioContext creation/resume inside a user gesture.
     // By creating it on the first tap anywhere in the app, it's already running
     // by the time the async decode completes later.
-    //
-    // Additionally, iOS plays Web Audio through the "ambient" audio session by
-    // default, which is silenced by the Ring/Silent hardware switch. Playing a
-    // brief moment through a standard <audio> element forces iOS to switch to
-    // the "playback" session category — making audio work like a real music app
-    // (plays through the mute switch, shows in Control Center, etc.).
     var audioUnlocked = false;
-
-    // Build a valid silent WAV file in memory (1 second, 8kHz, 16-bit mono).
-    // Must have real sample data — iOS ignores empty/malformed audio.
-    function createSilentWavBlob() {
-        var sampleRate = 8000;
-        var numSamples = sampleRate; // 1 second of silence
-        var dataSize = numSamples * 2; // 16-bit = 2 bytes per sample
-        var buffer = new ArrayBuffer(44 + dataSize);
-        var v = new DataView(buffer);
-
-        function writeStr(offset, str) {
-            for (var i = 0; i < str.length; i++) {
-                v.setUint8(offset + i, str.charCodeAt(i));
-            }
-        }
-
-        writeStr(0, 'RIFF');
-        v.setUint32(4, 36 + dataSize, true);
-        writeStr(8, 'WAVE');
-        writeStr(12, 'fmt ');
-        v.setUint32(16, 16, true);       // fmt chunk size
-        v.setUint16(20, 1, true);        // PCM format
-        v.setUint16(22, 1, true);        // mono
-        v.setUint32(24, sampleRate, true);
-        v.setUint32(28, sampleRate * 2, true); // byte rate
-        v.setUint16(32, 2, true);        // block align
-        v.setUint16(34, 16, true);       // bits per sample
-        writeStr(36, 'data');
-        v.setUint32(40, dataSize, true);
-        // Sample data is already all zeros (silence) from ArrayBuffer init
-
-        return new Blob([buffer], { type: 'audio/wav' });
-    }
 
     function warmUpAudioContext() {
         if (audioUnlocked) return;
@@ -207,21 +177,10 @@
 
         ensureAudioContext();
 
-        // Force iOS into "playback" audio session by looping a real (silent)
-        // WAV through a standard <audio> element. iOS reverts to "ambient"
-        // (muted by hardware switch) when no <audio> element is playing, so
-        // we keep it looping forever. It's inaudible silence — zero CPU cost.
-        try {
-            var blob = createSilentWavBlob();
-            var url = URL.createObjectURL(blob);
-            var unlock = new Audio(url);
-            unlock.setAttribute('playsinline', '');
-            unlock.loop = true;
-            unlock.play().catch(function () {
-                // Ignore — not all browsers need this
-            });
-        } catch (e) {
-            // Non-critical — mute switch may silence audio on older iOS
+        // Prime the output <audio> element from a user gesture so iOS allows
+        // it to play later without requiring another gesture.
+        if (outputAudioEl) {
+            outputAudioEl.play().catch(function () {});
         }
 
         document.removeEventListener('touchstart', warmUpAudioContext, true);
@@ -237,6 +196,9 @@
         eqFilters.forEach(function (f) { f.disconnect(); });
         if (limiterNode) limiterNode.disconnect();
 
+        // Use mediaStreamDest if available (iOS mute-switch bypass), else fallback
+        var destination = mediaStreamDest || audioCtx.destination;
+
         var lastNode = gainNode;
 
         if (settings.eqEnabled && eqFilters.length > 0) {
@@ -250,9 +212,9 @@
         if (settings.limiterEnabled && limiterNode) {
             limiterNode.threshold.value = settings.limiterCeiling;
             lastNode.connect(limiterNode);
-            limiterNode.connect(audioCtx.destination);
+            limiterNode.connect(destination);
         } else {
-            lastNode.connect(audioCtx.destination);
+            lastNode.connect(destination);
         }
     }
 
@@ -335,6 +297,11 @@
             updatePlayIcons(true);
             showMiniPlayer();
             updateSeekUI();
+
+            // Kick the <audio> output element — iOS requires play() from user gesture
+            if (outputAudioEl) {
+                outputAudioEl.play().catch(function () {});
+            }
         });
     }
 
