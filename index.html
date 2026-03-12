@@ -287,7 +287,7 @@
                     </div>
                     <div class="setting-description">Clears settings, library, and all playlists.</div>
                 </div>
-                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v53</div>
+                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v54</div>
             </div>
         </div>
 
@@ -488,6 +488,26 @@
                     <span>R</span>
                 </div>
             </div>
+            <div class="control-group" data-group="noise">
+                <div class="control-header">
+                    <span class="collapse-chevron">&#9660;</span>
+                    <span class="control-label">Noise Generator <button class="info-btn" data-info-title="Noise Generator" data-info="Generates background noise that mixes with your audio. White noise has equal energy at all frequencies. Pink noise has more bass energy (natural sounding). Brown noise has even more bass (deep rumble). Useful for focus, masking, or creative effects.">i</button></span>
+                </div>
+                <div class="noise-controls">
+                    <div class="noise-type-row">
+                        <button class="noise-type-btn" id="noiseOff" data-noise="off">Off</button>
+                        <button class="noise-type-btn" id="noiseWhite" data-noise="white">White</button>
+                        <button class="noise-type-btn" id="noisePink" data-noise="pink">Pink</button>
+                        <button class="noise-type-btn" id="noiseBrown" data-noise="brown">Brown</button>
+                    </div>
+                    <div class="filter-row">
+                        <span class="filter-label">Vol</span>
+                        <input type="range" id="noiseVolumeSlider" min="0" max="100" step="1" value="20">
+                        <span class="filter-freq" id="noiseVolumeValue">20%</span>
+                    </div>
+                </div>
+            </div>
+
             <div class="presets-section">
                 <div class="presets-header">
                     <span class="control-label">Presets <button class="info-btn" data-info-title="Playback Presets" data-info="Save a snapshot of all current audio settings (speed, EQ, volume, pan, filters, stereo width) as a named preset. Restore with a single tap. Great for switching between different listening modes.">i</button></span>

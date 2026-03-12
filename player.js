@@ -1161,6 +1161,95 @@
         }
     });
 
+    // --- Noise Generator ---
+    var noiseNode = null;
+    var noiseGainNode = null;
+    var currentNoiseType = 'off';
+    var pinkState = [0, 0, 0, 0, 0, 0, 0]; // Pink noise state
+
+    var noiseVolSlider = document.getElementById('noiseVolumeSlider');
+    var noiseVolValue = document.getElementById('noiseVolumeValue');
+    var noiseTypeBtns = document.querySelectorAll('.noise-type-btn');
+
+    function startNoise(type) {
+        stopNoise();
+        if (type === 'off') {
+            currentNoiseType = 'off';
+            updateNoiseButtons();
+            return;
+        }
+        ensureAudioContext();
+        currentNoiseType = type;
+
+        noiseGainNode = audioCtx.createGain();
+        noiseGainNode.gain.value = parseInt(noiseVolSlider.value) / 100;
+
+        var destination = mediaStreamDest || audioCtx.destination;
+        noiseGainNode.connect(destination);
+
+        noiseNode = audioCtx.createScriptProcessor(4096, 0, 1);
+        pinkState = [0, 0, 0, 0, 0, 0, 0];
+        var brownLast = 0;
+
+        noiseNode.onaudioprocess = function (e) {
+            var output = e.outputBuffer.getChannelData(0);
+            for (var i = 0; i < output.length; i++) {
+                if (currentNoiseType === 'white') {
+                    output[i] = Math.random() * 2 - 1;
+                } else if (currentNoiseType === 'pink') {
+                    // Voss-McCartney approximation
+                    var white = Math.random() * 2 - 1;
+                    pinkState[0] = 0.99886 * pinkState[0] + white * 0.0555179;
+                    pinkState[1] = 0.99332 * pinkState[1] + white * 0.0750759;
+                    pinkState[2] = 0.96900 * pinkState[2] + white * 0.1538520;
+                    pinkState[3] = 0.86650 * pinkState[3] + white * 0.3104856;
+                    pinkState[4] = 0.55000 * pinkState[4] + white * 0.5329522;
+                    pinkState[5] = -0.7616 * pinkState[5] - white * 0.0168980;
+                    output[i] = (pinkState[0] + pinkState[1] + pinkState[2] + pinkState[3] + pinkState[4] + pinkState[5] + pinkState[6] + white * 0.5362) * 0.11;
+                    pinkState[6] = white * 0.115926;
+                } else if (currentNoiseType === 'brown') {
+                    var w = Math.random() * 2 - 1;
+                    brownLast = (brownLast + (0.02 * w)) / 1.02;
+                    output[i] = brownLast * 3.5;
+                }
+            }
+        };
+
+        noiseNode.connect(noiseGainNode);
+        updateNoiseButtons();
+    }
+
+    function stopNoise() {
+        if (noiseNode) {
+            noiseNode.disconnect();
+            noiseNode = null;
+        }
+        if (noiseGainNode) {
+            noiseGainNode.disconnect();
+            noiseGainNode = null;
+        }
+    }
+
+    function updateNoiseButtons() {
+        noiseTypeBtns.forEach(function (btn) {
+            btn.classList.toggle('active', btn.dataset.noise === currentNoiseType);
+        });
+    }
+
+    noiseTypeBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            startNoise(btn.dataset.noise);
+        });
+    });
+
+    noiseVolSlider.addEventListener('input', function () {
+        var val = parseInt(noiseVolSlider.value);
+        noiseVolValue.textContent = val + '%';
+        if (noiseGainNode) noiseGainNode.gain.value = val / 100;
+    });
+
+    updateNoiseButtons();
+
     // --- Playback Presets ---
     var presetSaveBtn = document.getElementById('presetSaveBtn');
     var presetsListEl = document.getElementById('presetsList');

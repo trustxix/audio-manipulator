@@ -803,6 +803,39 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 /* Folder view headers */
+/* Noise generator */
+.noise-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.noise-type-row {
+    display: flex;
+    gap: 8px;
+}
+
+.noise-type-btn {
+    flex: 1;
+    padding: 8px 4px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: #888;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.noise-type-btn.active {
+    background: #1a2a3a;
+    border-color: #4a9eff;
+    color: #4a9eff;
+}
+
+.noise-type-btn:active {
+    background: #222;
+}
+
 /* Presets section */
 .presets-section {
     margin-bottom: 16px;
