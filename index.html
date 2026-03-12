@@ -234,6 +234,138 @@
     </div>
 
     <script>
+    const filePicker = document.getElementById('filePicker');
+    const fileInput = document.getElementById('fileInput');
+    const fileName = document.getElementById('fileName');
+    const playBtn = document.getElementById('playBtn');
+    const playIcon = document.getElementById('playIcon');
+    const rateSlider = document.getElementById('rateSlider');
+    const rateValue = document.getElementById('rateValue');
+    const volumeSlider = document.getElementById('volumeSlider');
+    const volumeValue = document.getElementById('volumeValue');
+
+    let audioCtx = null;
+    let audioBuffer = null;
+    let sourceNode = null;
+    let gainNode = null;
+    let isPlaying = false;
+    let segmentStartTime = 0;
+    let bufferOffset = 0;
+    let currentRate = 1.0;
+
+    filePicker.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        stopPlayback();
+
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            gainNode = audioCtx.createGain();
+            gainNode.gain.value = parseFloat(volumeSlider.value);
+            gainNode.connect(audioCtx.destination);
+        }
+
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+
+        fileName.textContent = 'Loading...';
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            audioCtx.decodeAudioData(event.target.result, (buffer) => {
+                audioBuffer = buffer;
+                fileName.textContent = file.name;
+                playBtn.disabled = false;
+                bufferOffset = 0;
+            }, () => {
+                fileName.textContent = 'Error: could not decode file';
+            });
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    function getCurrentBufferPosition() {
+        if (!isPlaying) return bufferOffset;
+        const wallElapsed = audioCtx.currentTime - segmentStartTime;
+        return bufferOffset + wallElapsed * currentRate;
+    }
+
+    playBtn.addEventListener('click', () => {
+        if (!audioBuffer) return;
+        if (isPlaying) {
+            pausePlayback();
+        } else {
+            startPlayback();
+        }
+    });
+
+    function startPlayback() {
+        sourceNode = audioCtx.createBufferSource();
+        sourceNode.buffer = audioBuffer;
+        currentRate = parseFloat(rateSlider.value);
+        sourceNode.playbackRate.value = currentRate;
+        sourceNode.connect(gainNode);
+
+        sourceNode.onended = () => {
+            if (isPlaying) {
+                isPlaying = false;
+                bufferOffset = 0;
+                playIcon.innerHTML = '&#9654;';
+            }
+        };
+
+        sourceNode.start(0, bufferOffset);
+        segmentStartTime = audioCtx.currentTime;
+        isPlaying = true;
+        playIcon.innerHTML = '&#9646;&#9646;';
+    }
+
+    function pausePlayback() {
+        if (!sourceNode) return;
+        bufferOffset = getCurrentBufferPosition();
+        if (bufferOffset >= audioBuffer.duration) {
+            bufferOffset = 0;
+        }
+        sourceNode.onended = null;
+        sourceNode.stop();
+        sourceNode = null;
+        isPlaying = false;
+        playIcon.innerHTML = '&#9654;';
+    }
+
+    function stopPlayback() {
+        if (sourceNode) {
+            sourceNode.onended = null;
+            sourceNode.stop();
+            sourceNode = null;
+        }
+        isPlaying = false;
+        bufferOffset = 0;
+        playIcon.innerHTML = '&#9654;';
+    }
+
+    rateSlider.addEventListener('input', () => {
+        const rate = parseFloat(rateSlider.value);
+        rateValue.textContent = rate.toFixed(2) + 'x';
+        if (sourceNode && isPlaying) {
+            bufferOffset = getCurrentBufferPosition();
+            segmentStartTime = audioCtx.currentTime;
+            currentRate = rate;
+            sourceNode.playbackRate.value = rate;
+        }
+    });
+
+    volumeSlider.addEventListener('input', () => {
+        const vol = parseFloat(volumeSlider.value);
+        volumeValue.textContent = Math.round(vol * 100) + '%';
+        if (gainNode) {
+            gainNode.gain.value = vol;
+        }
+    });
     </script>
 </body>
 </html>
