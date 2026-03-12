@@ -30,11 +30,28 @@
             text-align: center;
             margin-bottom: 24px;
             padding-top: 12px;
+            position: relative;
         }
 
         .header h1 {
             font-size: 18px;
             font-weight: 600;
+            color: #fff;
+        }
+
+        .settings-btn {
+            position: absolute;
+            right: 0;
+            top: 10px;
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 22px;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+
+        .settings-btn:active {
             color: #fff;
         }
 
@@ -293,27 +310,142 @@
             color: #555;
         }
 
-        .toggle-group {
-            background: #141414;
-            border-radius: 8px;
-            padding: 14px 16px;
-            margin-bottom: 16px;
+        /* Volume boost warning styles */
+        .volume-warn input[type="range"] {
+            background: #4d3800;
+        }
+        .volume-warn input[type="range"]::-webkit-slider-thumb {
+            background: #ff9500;
+        }
+        .volume-warn .control-value {
+            color: #ff9500;
+        }
+
+        .volume-danger input[type="range"] {
+            background: #4d1a17;
+        }
+        .volume-danger input[type="range"]::-webkit-slider-thumb {
+            background: #ff3b30;
+        }
+        .volume-danger .control-value {
+            color: #ff3b30;
+        }
+
+        /* Settings overlay */
+        .settings-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #0a0a0a;
+            z-index: 100;
+            padding: 20px;
+            padding-top: env(safe-area-inset-top, 20px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .settings-overlay.open {
+            display: block;
+        }
+
+        .settings-panel {
+            max-width: 428px;
+            margin: 0 auto;
+        }
+
+        .settings-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 24px;
+            padding-top: 12px;
         }
 
-        .toggle-label {
-            font-size: 13px;
-            color: #888;
+        .settings-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .settings-close {
+            background: none;
+            border: none;
+            color: #4a9eff;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+
+        .settings-section {
+            background: #141414;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+
+        .settings-section-title {
+            font-size: 11px;
+            color: #666;
             text-transform: uppercase;
             letter-spacing: 1px;
+            padding: 14px 16px 0;
+        }
+
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 16px;
+        }
+
+        .setting-row + .setting-row {
+            border-top: 1px solid #222;
+        }
+
+        .setting-label {
+            font-size: 14px;
+            color: #ccc;
+        }
+
+        .setting-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #fff;
+            font-family: 'SF Mono', SFMono-Regular, Menlo, monospace;
+        }
+
+        .setting-slider-row {
+            padding: 0 16px 14px;
+        }
+
+        .setting-description {
+            font-size: 12px;
+            color: #555;
+            padding: 0 16px 12px;
+            line-height: 1.4;
+        }
+
+        .setting-slider-row input[type="range"] {
+            margin-bottom: 4px;
+        }
+
+        .ceiling-controls {
+            transition: opacity 0.2s;
+        }
+
+        .ceiling-controls.disabled {
+            opacity: 0.3;
+            pointer-events: none;
         }
 
         .toggle-switch {
             position: relative;
             width: 48px;
             height: 28px;
+            flex-shrink: 0;
         }
 
         .toggle-switch input {
@@ -350,11 +482,28 @@
         .toggle-switch input:checked + .toggle-slider::before {
             transform: translateX(20px);
         }
+
+        .reset-btn {
+            width: 100%;
+            padding: 14px;
+            background: #141414;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: #ff453a;
+            font-size: 15px;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+
+        .reset-btn:active {
+            background: #2a1a1a;
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>Audio Manipulator</h1>
+        <button class="settings-btn" id="settingsBtn">&#9881;</button>
     </div>
 
     <div class="file-picker" id="filePicker">
@@ -412,27 +561,101 @@
         </div>
     </div>
 
-    <div class="control-group">
+    <div class="control-group" id="volumeGroup">
         <div class="control-header">
             <span class="control-label">Volume</span>
             <span class="control-value" id="volumeValue">80%</span>
         </div>
-        <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.8">
+        <input type="range" id="volumeSlider" min="0" max="2" step="0.01" value="0.8">
         <div class="range-labels">
             <span>0%</span>
-            <span>100%</span>
+            <span>200%</span>
         </div>
     </div>
 
-    <div class="toggle-group">
-        <span class="toggle-label">Autoplay</span>
-        <label class="toggle-switch">
-            <input type="checkbox" id="autoplayToggle" checked>
-            <span class="toggle-slider"></span>
-        </label>
+    <!-- Settings Overlay -->
+    <div class="settings-overlay" id="settingsOverlay">
+        <div class="settings-panel">
+            <div class="settings-header">
+                <h2>Settings</h2>
+                <button class="settings-close" id="settingsClose">Done</button>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-section-title">Playback</div>
+                <div class="setting-row">
+                    <span class="setting-label">Autoplay</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="autoplayToggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="setting-description">Auto-start playback on prev/next and advance to the next track when the current one ends.</div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-section-title">Audio Safety</div>
+                <div class="setting-row">
+                    <span class="setting-label">Limiter</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="limiterToggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="setting-description">Brick-wall limiter prevents audio from exceeding the ceiling. Protects speakers when volume is boosted above 100%.</div>
+                <div class="ceiling-controls" id="ceilingControls">
+                    <div class="setting-row">
+                        <span class="setting-label">Limiter Ceiling</span>
+                        <span class="setting-value" id="ceilingValue">-1.0 dB</span>
+                    </div>
+                    <div class="setting-slider-row">
+                        <input type="range" id="ceilingSlider" min="-6" max="0" step="0.5" value="-1">
+                        <div class="range-labels">
+                            <span>-6 dB (safe)</span>
+                            <span>0 dB</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Volume Boost Warning</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="boostWarningToggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="setting-description">Colors the volume slider orange above 100% and red above 150% as a visual reminder.</div>
+            </div>
+
+            <button class="reset-btn" id="resetDefaults">Reset to Defaults</button>
+        </div>
     </div>
 
     <script>
+    // --- Settings ---
+    const DEFAULT_SETTINGS = {
+        autoplay: true,
+        limiterEnabled: true,
+        limiterCeiling: -1,
+        boostWarning: true
+    };
+
+    function loadSettings() {
+        try {
+            const saved = localStorage.getItem('audio-manipulator-settings');
+            if (saved) return Object.assign({}, DEFAULT_SETTINGS, JSON.parse(saved));
+        } catch (e) {}
+        return Object.assign({}, DEFAULT_SETTINGS);
+    }
+
+    function saveSettings() {
+        try {
+            localStorage.setItem('audio-manipulator-settings', JSON.stringify(settings));
+        } catch (e) {}
+    }
+
+    let settings = loadSettings();
+
+    // --- DOM refs ---
     const filePicker = document.getElementById('filePicker');
     const fileInput = document.getElementById('fileInput');
     const fileName = document.getElementById('fileName');
@@ -446,6 +669,7 @@
     const rateValue = document.getElementById('rateValue');
     const volumeSlider = document.getElementById('volumeSlider');
     const volumeValue = document.getElementById('volumeValue');
+    const volumeGroup = document.getElementById('volumeGroup');
     const seekSlider = document.getElementById('seekSlider');
     const currentTimeEl = document.getElementById('currentTime');
     const totalTimeEl = document.getElementById('totalTime');
@@ -453,11 +677,22 @@
     const semitoneDown = document.getElementById('semitoneDown');
     const semitoneValue = document.getElementById('semitoneValue');
     const autoplayToggle = document.getElementById('autoplayToggle');
+    const settingsBtn = document.getElementById('settingsBtn');
+    const settingsOverlay = document.getElementById('settingsOverlay');
+    const settingsClose = document.getElementById('settingsClose');
+    const limiterToggle = document.getElementById('limiterToggle');
+    const ceilingSlider = document.getElementById('ceilingSlider');
+    const ceilingValue = document.getElementById('ceilingValue');
+    const ceilingControls = document.getElementById('ceilingControls');
+    const boostWarningToggle = document.getElementById('boostWarningToggle');
+    const resetDefaults = document.getElementById('resetDefaults');
 
+    // --- Audio state ---
     let audioCtx = null;
     let audioBuffer = null;
     let sourceNode = null;
     let gainNode = null;
+    let limiterNode = null;
     let isPlaying = false;
     let segmentStartTime = 0;
     let bufferOffset = 0;
@@ -471,6 +706,92 @@
     let playlist = [];
     let currentTrackIndex = -1;
 
+    // --- Apply loaded settings to UI ---
+    function applySettingsToUI() {
+        autoplayToggle.checked = settings.autoplay;
+        limiterToggle.checked = settings.limiterEnabled;
+        ceilingSlider.value = settings.limiterCeiling;
+        ceilingValue.textContent = settings.limiterCeiling.toFixed(1) + ' dB';
+        ceilingControls.classList.toggle('disabled', !settings.limiterEnabled);
+        boostWarningToggle.checked = settings.boostWarning;
+        updateBoostWarning();
+    }
+
+    applySettingsToUI();
+
+    // --- Settings panel ---
+    settingsBtn.addEventListener('click', () => {
+        settingsOverlay.classList.add('open');
+    });
+
+    settingsClose.addEventListener('click', () => {
+        settingsOverlay.classList.remove('open');
+    });
+
+    autoplayToggle.addEventListener('change', () => {
+        settings.autoplay = autoplayToggle.checked;
+        saveSettings();
+    });
+
+    limiterToggle.addEventListener('change', () => {
+        settings.limiterEnabled = limiterToggle.checked;
+        ceilingControls.classList.toggle('disabled', !settings.limiterEnabled);
+        updateAudioChain();
+        saveSettings();
+    });
+
+    ceilingSlider.addEventListener('input', () => {
+        const val = parseFloat(ceilingSlider.value);
+        settings.limiterCeiling = val;
+        ceilingValue.textContent = val.toFixed(1) + ' dB';
+        if (limiterNode) {
+            limiterNode.threshold.value = val;
+        }
+        saveSettings();
+    });
+
+    boostWarningToggle.addEventListener('change', () => {
+        settings.boostWarning = boostWarningToggle.checked;
+        updateBoostWarning();
+        saveSettings();
+    });
+
+    resetDefaults.addEventListener('click', () => {
+        settings = Object.assign({}, DEFAULT_SETTINGS);
+        saveSettings();
+        applySettingsToUI();
+        updateAudioChain();
+    });
+
+    // --- Audio chain management ---
+    function updateAudioChain() {
+        if (!gainNode || !audioCtx) return;
+        gainNode.disconnect();
+        if (limiterNode) limiterNode.disconnect();
+
+        if (settings.limiterEnabled && limiterNode) {
+            limiterNode.threshold.value = settings.limiterCeiling;
+            gainNode.connect(limiterNode);
+            limiterNode.connect(audioCtx.destination);
+        } else {
+            gainNode.connect(audioCtx.destination);
+        }
+    }
+
+    // --- Volume boost warning ---
+    function updateBoostWarning() {
+        const vol = parseFloat(volumeSlider.value);
+        volumeGroup.classList.remove('volume-warn', 'volume-danger');
+        if (settings.boostWarning) {
+            if (vol > 1.5) {
+                volumeGroup.classList.add('volume-danger');
+            } else if (vol > 1.0) {
+                volumeGroup.classList.add('volume-warn');
+            }
+        }
+    }
+
+    // --- File handling ---
     filePicker.addEventListener('click', () => fileInput.click());
 
     fileInput.addEventListener('change', (e) => {
@@ -491,7 +812,16 @@
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             gainNode = audioCtx.createGain();
             gainNode.gain.value = parseFloat(volumeSlider.value);
-            gainNode.connect(audioCtx.destination);
+
+            // Create limiter (DynamicsCompressor configured as brick-wall limiter)
+            limiterNode = audioCtx.createDynamicsCompressor();
+            limiterNode.threshold.value = settings.limiterCeiling;
+            limiterNode.knee.value = 0;
+            limiterNode.ratio.value = 20;
+            limiterNode.attack.value = 0.003;
+            limiterNode.release.value = 0.25;
+
+            updateAudioChain();
         }
 
         if (audioCtx.state === 'suspended') {
@@ -550,13 +880,13 @@
 
     prevBtn.addEventListener('click', () => {
         if (currentTrackIndex > 0) {
-            loadTrack(currentTrackIndex - 1, autoplayToggle.checked);
+            loadTrack(currentTrackIndex - 1, settings.autoplay);
         }
     });
 
     nextBtn.addEventListener('click', () => {
         if (currentTrackIndex < playlist.length - 1) {
-            loadTrack(currentTrackIndex + 1, autoplayToggle.checked);
+            loadTrack(currentTrackIndex + 1, settings.autoplay);
         }
     });
 
@@ -622,7 +952,7 @@
                 currentTimeEl.textContent = '0:00';
                 if (animFrameId) cancelAnimationFrame(animFrameId);
                 // Auto-advance to next track
-                if (autoplayToggle.checked && currentTrackIndex < playlist.length - 1) {
+                if (settings.autoplay && currentTrackIndex < playlist.length - 1) {
                     loadTrack(currentTrackIndex + 1, true);
                 }
             }
@@ -737,6 +1067,7 @@
         if (gainNode) {
             gainNode.gain.value = vol;
         }
+        updateBoostWarning();
     });
     </script>
     <script>
