@@ -292,6 +292,64 @@
             font-size: 11px;
             color: #555;
         }
+
+        .toggle-group {
+            background: #141414;
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .toggle-label {
+            font-size: 13px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 48px;
+            height: 28px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #333;
+            border-radius: 14px;
+            transition: background 0.2s;
+        }
+
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            left: 3px;
+            bottom: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background: #4a9eff;
+        }
+
+        .toggle-switch input:checked + .toggle-slider::before {
+            transform: translateX(20px);
+        }
     </style>
 </head>
 <body>
@@ -366,6 +424,14 @@
         </div>
     </div>
 
+    <div class="toggle-group">
+        <span class="toggle-label">Autoplay</span>
+        <label class="toggle-switch">
+            <input type="checkbox" id="autoplayToggle" checked>
+            <span class="toggle-slider"></span>
+        </label>
+    </div>
+
     <script>
     const filePicker = document.getElementById('filePicker');
     const fileInput = document.getElementById('fileInput');
@@ -386,6 +452,7 @@
     const semitoneUp = document.getElementById('semitoneUp');
     const semitoneDown = document.getElementById('semitoneDown');
     const semitoneValue = document.getElementById('semitoneValue');
+    const autoplayToggle = document.getElementById('autoplayToggle');
 
     let audioCtx = null;
     let audioBuffer = null;
@@ -431,10 +498,10 @@
             audioCtx.resume();
         }
 
-        loadTrack(0);
+        loadTrack(0, false);
     });
 
-    function loadTrack(index) {
+    function loadTrack(index, autoplay) {
         if (index < 0 || index >= playlist.length) return;
 
         stopPlayback();
@@ -461,6 +528,9 @@
                     totalTimeEl.textContent = formatTime(buffer.duration);
                     currentTimeEl.textContent = '0:00';
                     bufferOffset = 0;
+                    if (autoplay) {
+                        startPlayback();
+                    }
                 })
                 .catch(() => {
                     fileName.textContent = 'Error: could not decode file';
@@ -480,13 +550,13 @@
 
     prevBtn.addEventListener('click', () => {
         if (currentTrackIndex > 0) {
-            loadTrack(currentTrackIndex - 1);
+            loadTrack(currentTrackIndex - 1, autoplayToggle.checked);
         }
     });
 
     nextBtn.addEventListener('click', () => {
         if (currentTrackIndex < playlist.length - 1) {
-            loadTrack(currentTrackIndex + 1);
+            loadTrack(currentTrackIndex + 1, autoplayToggle.checked);
         }
     });
 
@@ -552,9 +622,8 @@
                 currentTimeEl.textContent = '0:00';
                 if (animFrameId) cancelAnimationFrame(animFrameId);
                 // Auto-advance to next track
-                if (currentTrackIndex < playlist.length - 1) {
-                    loadTrack(currentTrackIndex + 1);
-                    startPlayback();
+                if (autoplayToggle.checked && currentTrackIndex < playlist.length - 1) {
+                    loadTrack(currentTrackIndex + 1, true);
                 }
             }
         };
