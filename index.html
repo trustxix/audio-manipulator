@@ -260,6 +260,8 @@
         if (!file) return;
 
         stopPlayback();
+        audioBuffer = null;
+        playBtn.disabled = true;
 
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -276,14 +278,19 @@
 
         const reader = new FileReader();
         reader.onload = (event) => {
-            audioCtx.decodeAudioData(event.target.result, (buffer) => {
-                audioBuffer = buffer;
-                fileName.textContent = file.name;
-                playBtn.disabled = false;
-                bufferOffset = 0;
-            }, () => {
-                fileName.textContent = 'Error: could not decode file';
-            });
+            audioCtx.decodeAudioData(event.target.result)
+                .then((buffer) => {
+                    audioBuffer = buffer;
+                    fileName.textContent = file.name;
+                    playBtn.disabled = false;
+                    bufferOffset = 0;
+                })
+                .catch(() => {
+                    fileName.textContent = 'Error: could not decode file';
+                });
+        };
+        reader.onerror = () => {
+            fileName.textContent = 'Error: could not read file';
         };
         reader.readAsArrayBuffer(file);
     });
@@ -291,7 +298,8 @@
     function getCurrentBufferPosition() {
         if (!isPlaying) return bufferOffset;
         const wallElapsed = audioCtx.currentTime - segmentStartTime;
-        return bufferOffset + wallElapsed * currentRate;
+        const pos = bufferOffset + wallElapsed * currentRate;
+        return audioBuffer ? Math.min(pos, audioBuffer.duration) : pos;
     }
 
     playBtn.addEventListener('click', () => {
