@@ -211,7 +211,7 @@
                     </div>
                     <div class="setting-description">Clears settings, library, and all playlists.</div>
                 </div>
-                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v34</div>
+                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v35</div>
             </div>
         </div>
 
@@ -630,6 +630,74 @@
                 navigator.vibrate(duration || 10);
             }
         };
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function (e) {
+            // Skip if user is typing in an input or textarea
+            var tag = e.target.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+            var p = window.AM.player;
+            var q = window.AM.queue;
+
+            switch (e.key) {
+                case ' ':
+                    e.preventDefault();
+                    if (p.isPlaying()) { p.pausePlayback(); } else { p.startPlayback(); }
+                    break;
+                case 'ArrowRight':
+                    // Seek forward 5 seconds
+                    if (document.getElementById('seekSlider') && !document.getElementById('seekSlider').disabled) {
+                        var seek = document.getElementById('seekSlider');
+                        var newVal = Math.min(1000, parseInt(seek.value) + 25);
+                        seek.value = newVal;
+                        seek.dispatchEvent(new Event('change'));
+                    }
+                    break;
+                case 'ArrowLeft':
+                    // Seek backward 5 seconds
+                    if (document.getElementById('seekSlider') && !document.getElementById('seekSlider').disabled) {
+                        var seekL = document.getElementById('seekSlider');
+                        var newValL = Math.max(0, parseInt(seekL.value) - 25);
+                        seekL.value = newValL;
+                        seekL.dispatchEvent(new Event('change'));
+                    }
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    var volUp = document.getElementById('volumeSlider');
+                    volUp.value = Math.min(2, parseFloat(volUp.value) + 0.05);
+                    volUp.dispatchEvent(new Event('input'));
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    var volDown = document.getElementById('volumeSlider');
+                    volDown.value = Math.max(0, parseFloat(volDown.value) - 0.05);
+                    volDown.dispatchEvent(new Event('input'));
+                    break;
+                case 'n': case 'N':
+                    if (q && q.hasNext()) q.playNext();
+                    break;
+                case 'p': case 'P':
+                    if (q && q.hasPrev()) q.playPrev();
+                    break;
+                case 'm': case 'M':
+                    // Toggle mute
+                    var volM = document.getElementById('volumeSlider');
+                    if (parseFloat(volM.value) > 0) {
+                        volM.dataset.prevVol = volM.value;
+                        volM.value = 0;
+                    } else {
+                        volM.value = volM.dataset.prevVol || 0.8;
+                    }
+                    volM.dispatchEvent(new Event('input'));
+                    break;
+                case 'r': case 'R':
+                    // Restart track
+                    document.getElementById('restartBtn').click();
+                    break;
+            }
+        });
 
         // Service Worker
         if ('serviceWorker' in navigator) {
