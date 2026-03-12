@@ -142,6 +142,28 @@
                         </label>
                     </div>
                     <div class="setting-row">
+                        <span class="setting-label">Intro Skip <button class="info-btn" data-info-title="Intro Skip" data-info="Automatically skips the specified number of seconds at the beginning of each track. Useful for skipping silence, intros, or spoken introductions.">i</button></span>
+                        <select class="setting-select" id="introSkipSelect">
+                            <option value="0">Off</option>
+                            <option value="5">5s</option>
+                            <option value="10">10s</option>
+                            <option value="15">15s</option>
+                            <option value="30">30s</option>
+                            <option value="60">60s</option>
+                        </select>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Outro Skip <button class="info-btn" data-info-title="Outro Skip" data-info="Automatically skips the last specified seconds of each track and advances to the next. Useful for cutting off silence, fades, or long outros.">i</button></span>
+                        <select class="setting-select" id="outroSkipSelect">
+                            <option value="0">Off</option>
+                            <option value="5">5s</option>
+                            <option value="10">10s</option>
+                            <option value="15">15s</option>
+                            <option value="30">30s</option>
+                            <option value="60">60s</option>
+                        </select>
+                    </div>
+                    <div class="setting-row">
                         <span class="setting-label">Default Repeat <button class="info-btn" data-info-title="Repeat Mode" data-info="Off: stops after the last track. Repeat All: loops the entire queue. Repeat One: loops the current track endlessly.">i</button></span>
                         <select class="setting-select" id="repeatSelect">
                             <option value="off">Off</option>
@@ -243,7 +265,7 @@
                     </div>
                     <div class="setting-description">Clears settings, library, and all playlists.</div>
                 </div>
-                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v49</div>
+                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v50</div>
             </div>
         </div>
 

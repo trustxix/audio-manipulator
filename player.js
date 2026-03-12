@@ -372,6 +372,31 @@
             } catch (e) {}
         }
 
+        // Outro skip: trigger end early
+        var outroSkip = settings.outroSkip || 0;
+        if (isPlaying && outroSkip > 0 && abLoopState !== 2 && pos >= audioBuffer.duration - outroSkip) {
+            sourceNode.onended = null;
+            sourceNode.stop();
+            sourceNode = null;
+            isPlaying = false;
+            bufferOffset = 0;
+            updatePlayIcons(false);
+            if (animFrameId) cancelAnimationFrame(animFrameId);
+            // Trigger next track logic (same as natural end)
+            if (settings.repeatMode === 'one') {
+                var introSkipR = settings.introSkip || 0;
+                bufferOffset = introSkipR;
+                startPlayback();
+            } else if (settings.autoplay && AM.queue) {
+                if (AM.queue.hasNext()) {
+                    AM.queue.playNext();
+                } else if (settings.repeatMode === 'all') {
+                    AM.queue.playFirst();
+                }
+            }
+            return;
+        }
+
         // A/B loop: jump back to A when reaching B
         if (isPlaying && abLoopState === 2 && pos >= abLoopB) {
             sourceNode.onended = null;
@@ -658,6 +683,14 @@
                     // Write duration back to library entry
                     if (AM.library && AM.library.updateDuration) {
                         AM.library.updateDuration(trackId, buffer.duration);
+                    }
+
+                    // Apply intro skip
+                    var introSkip = settings.introSkip || 0;
+                    if (introSkip > 0 && introSkip < buffer.duration) {
+                        bufferOffset = introSkip;
+                        seekSlider.value = Math.round((introSkip / buffer.duration) * 1000);
+                        currentTimeEl.textContent = formatTime(introSkip);
                     }
 
                     if (autoplay) {

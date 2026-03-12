@@ -20,6 +20,8 @@
     var monoToggle = document.getElementById('monoToggle');
     var hapticToggle = document.getElementById('hapticToggle');
     var repeatSelect = document.getElementById('repeatSelect');
+    var introSkipSelect = document.getElementById('introSkipSelect');
+    var outroSkipSelect = document.getElementById('outroSkipSelect');
     var settingsLoadBtn = document.getElementById('settingsLoadBtn');
     var clearLibraryBtn = document.getElementById('clearLibraryBtn');
     var libraryStats = document.getElementById('libraryStats');
@@ -38,6 +40,8 @@
         monoToggle.checked = settings.monoEnabled;
         hapticToggle.checked = settings.hapticEnabled;
         repeatSelect.value = settings.repeatMode;
+        introSkipSelect.value = settings.introSkip || 0;
+        outroSkipSelect.value = settings.outroSkip || 0;
     }
 
     applySettingsToUI();
@@ -92,6 +96,16 @@
         settings.repeatMode = repeatSelect.value;
         storage.saveSettings(settings);
         player.updateRepeatUI();
+    });
+
+    introSkipSelect.addEventListener('change', function () {
+        settings.introSkip = parseInt(introSkipSelect.value);
+        storage.saveSettings(settings);
+    });
+
+    outroSkipSelect.addEventListener('change', function () {
+        settings.outroSkip = parseInt(outroSkipSelect.value);
+        storage.saveSettings(settings);
     });
 
     // --- Load folder from settings ---

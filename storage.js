@@ -62,6 +62,8 @@
         hapticEnabled: false,
         panValue: 0,
         stereoWidth: 1.0,
+        introSkip: 0,
+        outroSkip: 0,
         collapsedGroups: []
     };
 
