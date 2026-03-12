@@ -221,6 +221,20 @@
     // --- Get filtered & sorted entries ---
     function getFilteredEntries() {
         var query = librarySearch.value.trim().toLowerCase();
+
+        // Pre-compute duplicate filenames if needed
+        var duplicateNames = null;
+        if (currentAvailFilter === 'duplicates') {
+            var nameCounts = {};
+            libraryEntries.forEach(function (e) {
+                nameCounts[e.filename] = (nameCounts[e.filename] || 0) + 1;
+            });
+            duplicateNames = new Set();
+            Object.keys(nameCounts).forEach(function (name) {
+                if (nameCounts[name] > 1) duplicateNames.add(name);
+            });
+        }
+
         var filtered = libraryEntries.filter(function (entry) {
             // Search filter
             if (query) {
@@ -234,6 +248,9 @@
             if (currentAvailFilter === 'recent') {
                 var oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
                 if (entry.dateAdded < oneDayAgo) return false;
+            }
+            if (currentAvailFilter === 'duplicates') {
+                if (!duplicateNames.has(entry.filename)) return false;
             }
             // Folder filter
             if (currentFolderFilter) {
