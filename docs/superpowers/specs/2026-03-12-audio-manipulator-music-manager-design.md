@@ -27,7 +27,7 @@ audio-manipulator/
 ├── settings.js         # Settings tab UI
 ├── storage.js          # localStorage abstraction
 ├── manifest.json       # PWA manifest
-├── sw.js               # Service worker (cache all new files)
+├── sw.js               # Service worker (caches app shell files only; bumped on each deploy)
 └── icons/
     ├── icon-192.png
     └── icon-512.png
@@ -108,13 +108,15 @@ When the user loads a folder, the app receives File objects and matches them to 
 ```
 For each .wav file in the loaded folder:
     1. Exact relativePath match (skip if relativePath is empty) → reconnect
-    2. Filename match → exactly one library entry with that filename → reconnect
-    3. Filename + fileSize match → exactly one library entry matching both → reconnect
+    2. Filename + fileSize match → exactly one library entry matching both → reconnect
+    3. Filename match (any size) → exactly one library entry with that filename → reconnect
     4. If steps 2-3 produce multiple matches, skip (leave ambiguous entries unmatched)
     5. No match → create new LibraryEntry, add to library
 
 Unmatched LibraryEntries remain unavailable (no File in fileMap).
 ```
+
+Step 2 now checks filename + fileSize first (strongest signal after exact path), preventing wrong-file reconnections when a file with the same name has changed.
 
 If `webkitRelativePath` is not available (older iOS versions), step 1 is skipped and matching falls through to filename-based steps. The `relativePath` field stores an empty string in this case.
 
@@ -169,12 +171,12 @@ When the library has no entries, show a centered message: "No tracks yet" with a
    - Track name (filename without .wav extension)
    - Subfolder path + duration (smaller, grey text; shows "—" if duration not yet known)
    - "+" button — opens quick playlist picker to add track
-   - "..." button — bottom sheet: Play Next, Add to Queue, Remove from Library
+   - "..." button — bottom sheet: Play Next, Add to Queue, Remove from Library (removing a track also removes it from the current queue if present; playlists retain the track ID but show it as "removed")
    - Unavailable tracks: dimmed, no action buttons, "unavailable" label
 
 ### Playing from Library
 
-Tapping a track row plays it: replaces the queue with all available library tracks in current sort order, starting from the tapped track. Queue source = "library". If no tracks are available (folder not loaded), tapping is disabled and a prompt suggests loading a folder.
+Tapping a track row plays it: replaces the queue with all available library tracks matching the current search/filter in current sort order, starting from the tapped track. Begins playback immediately (interrupts current playback if any). Queue source = "library". If no tracks are available (folder not loaded), tapping is disabled and a prompt suggests loading a folder.
 
 ## Playlists Tab (`playlists.js`)
 
@@ -203,9 +205,9 @@ Tap "+" → text input appears at top of list → type name → confirm. Starts 
 
 ### Playing from Playlist
 
-**"Play All"**: Replaces queue with playlist's available tracks in playlist order, starting from track 1. Queue source = "playlist:\<id\>".
+**"Play All"**: Replaces queue with playlist's available tracks in playlist order, starting from track 1. Begins playback immediately (interrupts current playback if any). Queue source = "playlist:\<id\>".
 
-**"Shuffle"**: Replaces queue with playlist's available tracks in a randomized order and begins playback. Queue source = "playlist:\<id\>". The shuffle is a one-time randomization of the queue — it does not set a persistent shuffle mode.
+**"Shuffle"**: Replaces queue with playlist's available tracks in a Fisher-Yates randomized order and begins playback immediately (interrupts current playback if any). Queue source = "playlist:\<id\>". The shuffle is a one-time randomization of the queue — it does not set a persistent shuffle mode.
 
 **Tapping a track row**: Replaces queue with playlist's available tracks in playlist order, starting from the tapped track. Queue source = "playlist:\<id\>".
 
@@ -227,7 +229,7 @@ When the queue is empty (no tracks have been played this session), show a center
    - Track name, subfolder, duration
    - "..." button — Remove from Queue
    - Drag handle to reorder
-4. **"Clear Queue" button** — clears all tracks after the currently playing one. If nothing is playing, clears the entire queue. Button is hidden when queue is empty.
+4. **"Clear Queue" button** — clears all tracks after the currently playing one. "Currently playing" includes paused state (a track is loaded and can be resumed). If no track is loaded at all (`currentIndex === -1`), clears the entire queue. Button is hidden when queue is empty.
 
 ### Queue Behavior
 
@@ -235,7 +237,7 @@ When the queue is empty (no tracks have been played this session), show a center
 - Playing from Playlist → queue = playlist's available tracks in playlist order
 - "Play Next" → inserts at position after current track (position 2 if something is playing)
 - "Add to Queue" → appends to end
-- Drag reorder updates queue immediately
+- Drag reorder updates queue immediately; `currentIndex` follows the currently-playing track (if the playing track is dragged, the index updates to its new position)
 - Autoplay setting controls auto-advance within the queue; when queue ends, playback stops
 
 ## Settings Tab (`settings.js`)
