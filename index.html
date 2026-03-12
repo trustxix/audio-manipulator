@@ -146,6 +146,58 @@
             font-family: 'SF Mono', SFMono-Regular, Menlo, monospace;
         }
 
+        .semitone-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 12px;
+        }
+
+        .semitone-btn {
+            width: 44px;
+            height: 44px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: #e0e0e0;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
+        }
+
+        .semitone-btn:active {
+            background: #333;
+        }
+
+        .semitone-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .semitone-display {
+            text-align: center;
+            min-width: 80px;
+        }
+
+        .semitone-display .value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #fff;
+            font-family: 'SF Mono', SFMono-Regular, Menlo, monospace;
+        }
+
+        .semitone-display .label {
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 2px;
+        }
+
         .control-group {
             background: #141414;
             border-radius: 8px;
@@ -246,6 +298,14 @@
             <span>25%</span>
             <span>200%</span>
         </div>
+        <div class="semitone-controls">
+            <button class="semitone-btn" id="semitoneDown">&#9664;</button>
+            <div class="semitone-display">
+                <div class="value" id="semitoneValue">0 st</div>
+                <div class="label">semitones</div>
+            </div>
+            <button class="semitone-btn" id="semitoneUp">&#9654;</button>
+        </div>
     </div>
 
     <div class="control-group">
@@ -273,6 +333,9 @@
     const seekSlider = document.getElementById('seekSlider');
     const currentTimeEl = document.getElementById('currentTime');
     const totalTimeEl = document.getElementById('totalTime');
+    const semitoneUp = document.getElementById('semitoneUp');
+    const semitoneDown = document.getElementById('semitoneDown');
+    const semitoneValue = document.getElementById('semitoneValue');
 
     let audioCtx = null;
     let audioBuffer = null;
@@ -284,6 +347,8 @@
     let currentRate = 1.0;
     let isSeeking = false;
     let animFrameId = null;
+    let semitones = 0;
+    const SEMITONE = Math.pow(2, 1 / 12);
 
     filePicker.addEventListener('click', () => fileInput.click());
 
@@ -437,16 +502,53 @@
         }
     });
 
-    rateSlider.addEventListener('input', () => {
-        const pct = parseInt(rateSlider.value);
-        const rate = pct / 100;
+    function applyRate(rate) {
+        const pct = Math.round(rate * 100);
+        rateSlider.value = Math.max(25, Math.min(200, pct));
         rateValue.textContent = pct + '%';
         if (sourceNode && isPlaying) {
             bufferOffset = getCurrentBufferPosition();
             segmentStartTime = audioCtx.currentTime;
             currentRate = rate;
             sourceNode.playbackRate.value = rate;
+        } else {
+            currentRate = rate;
         }
+    }
+
+    function updateSemitoneDisplay() {
+        const sign = semitones > 0 ? '+' : '';
+        semitoneValue.textContent = sign + semitones + ' st';
+        semitoneDown.disabled = semitones <= -12;
+        semitoneUp.disabled = semitones >= 12;
+    }
+
+    rateSlider.addEventListener('input', () => {
+        const pct = parseInt(rateSlider.value);
+        const rate = pct / 100;
+        rateValue.textContent = pct + '%';
+        semitones = Math.round(12 * Math.log2(rate));
+        updateSemitoneDisplay();
+        if (sourceNode && isPlaying) {
+            bufferOffset = getCurrentBufferPosition();
+            segmentStartTime = audioCtx.currentTime;
+            currentRate = rate;
+            sourceNode.playbackRate.value = rate;
+        }
+    });
+
+    semitoneUp.addEventListener('click', () => {
+        if (semitones >= 12) return;
+        semitones++;
+        applyRate(Math.pow(SEMITONE, semitones));
+        updateSemitoneDisplay();
+    });
+
+    semitoneDown.addEventListener('click', () => {
+        if (semitones <= -12) return;
+        semitones--;
+        applyRate(Math.pow(SEMITONE, semitones));
+        updateSemitoneDisplay();
     });
 
     volumeSlider.addEventListener('input', () => {
