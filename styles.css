@@ -2285,6 +2285,26 @@ input[type="range"]::-webkit-slider-thumb {
     font-family: 'SF Mono', SFMono-Regular, Menlo, monospace;
 }
 
+.perf-overlay {
+    position: fixed;
+    top: 44px;
+    right: 4px;
+    z-index: 99999;
+    background: rgba(0,0,0,0.85);
+    color: #30d158;
+    font: 10px/1.3 'SF Mono', SFMono-Regular, Menlo, monospace;
+    padding: 4px 6px;
+    border-radius: 6px;
+    pointer-events: none;
+    white-space: nowrap;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+.perf-overlay .perf-lbl { color: #8e8e93; }
+.perf-overlay .perf-dim { color: #636366; margin-left: 4px; }
+.perf-overlay .perf-warn { color: #ff9f0a; }
+.perf-overlay .perf-bad { color: #ff453a; }
+
 .toggle-switch {
     position: relative;
     width: 48px;

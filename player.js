@@ -4,6 +4,35 @@
 
     var AM = window.AM = window.AM || {};
 
+    // --- Debug flags (runtime, not persisted) ---
+    var debugFlags = {
+        disableBpm: false,
+        disableAutoLevel: false,
+        disableSpectrum: false,
+        disableMeter: false,
+        disablePreload: false,
+        bypassEq: false,
+        debounceChain: false
+    };
+
+    // --- Performance profiler ---
+    var perfData = {
+        lastFrameT: 0,
+        frameTime: 0,
+        peakFrame: 0,
+        drops: 0,
+        bpmTime: '—',
+        autoLvlTime: '—',
+        spectrumTime: '—',
+        meterTime: '—',
+        chainTime: '—',
+        preloadTime: '—',
+        overlayVisible: false
+    };
+
+    AM.debugFlags = debugFlags;
+    AM.perfData = perfData;
+
     // --- EQ band definitions ---
     var EQ_FREQUENCIES = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
 
@@ -485,8 +514,18 @@
         };
     }
 
+    var _chainDebounceTimer = null;
+
     function updateAudioChain() {
         if (!gainNode || !audioCtx) return;
+
+        // Debounce: if flag is on, throttle to max 4 calls/sec
+        if (debugFlags.debounceChain) {
+            if (_chainDebounceTimer) return;
+            _chainDebounceTimer = setTimeout(function () { _chainDebounceTimer = null; }, 250);
+        }
+
+        var _cT0 = performance.now();
 
         gainNode.disconnect();
         if (fadeGainNode) fadeGainNode.disconnect();
@@ -523,7 +562,7 @@
             lastNode = pannerNode;
         }
 
-        if (settings.eqEnabled && eqFilters.length > 0) {
+        if (settings.eqEnabled && !debugFlags.bypassEq && eqFilters.length > 0) {
             lastNode.connect(eqFilters[0]);
             for (var i = 0; i < eqFilters.length - 1; i++) {
                 eqFilters[i].connect(eqFilters[i + 1]);
@@ -597,6 +636,8 @@
             lastNode.connect(destination);
             if (analyserNode) lastNode.connect(analyserNode);
         }
+
+        perfData.chainTime = (performance.now() - _cT0).toFixed(2);
     }
 
     // --- Volume boost warning ---
@@ -767,6 +808,16 @@
 
     function updateSeekUI() {
         if (!audioBuffer) return;
+
+        // --- Perf: frame timing ---
+        var now = performance.now();
+        if (perfData.lastFrameT > 0) {
+            perfData.frameTime = now - perfData.lastFrameT;
+            if (perfData.frameTime > perfData.peakFrame) perfData.peakFrame = perfData.frameTime;
+            if (perfData.frameTime > 32) perfData.drops++;
+        }
+        perfData.lastFrameT = now;
+
         uiFrameCount++;
         var pos = getCurrentBufferPosition();
         var pctDone = pos / audioBuffer.duration;
@@ -853,7 +904,8 @@
         }
 
         // --- Expensive metering (every 4 frames ~15fps) ---
-        if (isPlaying && uiFrameCount % 4 === 0 && analyserNode && analyserData) {
+        if (isPlaying && !debugFlags.disableMeter && uiFrameCount % 4 === 0 && analyserNode && analyserData) {
+            var _mT0 = performance.now();
             analyserNode.getFloatTimeDomainData(analyserData);
             var clipping = false;
             var sumSq = 0;
@@ -879,16 +931,53 @@
                 loudnessBarEl.style.width = pct + '%';
                 loudnessBarEl.style.background = dbfs > -3 ? '#ff453a' : dbfs > -14 ? '#ff9f0a' : '#30d158';
             }
+            perfData.meterTime = (performance.now() - _mT0).toFixed(1);
         }
 
         // --- Spectrum analyzer (every 2 frames ~30fps) ---
-        if (isPlaying && uiFrameCount % 2 === 0 && analyserNode && spectrumFreqData && spectrumCanvas && spectrumCtx && spectrumVisible) {
+        if (isPlaying && !debugFlags.disableSpectrum && uiFrameCount % 2 === 0 && analyserNode && spectrumFreqData && spectrumCanvas && spectrumCtx && spectrumVisible) {
+            var _sT0 = performance.now();
             analyserNode.getByteFrequencyData(spectrumFreqData);
             drawSpectrum();
+            perfData.spectrumTime = (performance.now() - _sT0).toFixed(1);
+        }
+
+        // --- Update perf overlay (every 10 frames) ---
+        if (perfData.overlayVisible && uiFrameCount % 10 === 0) {
+            updatePerfOverlay();
         }
 
         if (isPlaying) {
             animFrameId = requestAnimationFrame(updateSeekUI);
+        }
+    }
+
+    function updatePerfOverlay() {
+        var el = document.getElementById('perfOverlay');
+        if (!el) return;
+        var ft = document.getElementById('perfFrameTime');
+        var pk = document.getElementById('perfPeak');
+        var dr = document.getElementById('perfDrops');
+        var cs = document.getElementById('perfCtxState');
+        if (ft) ft.textContent = perfData.frameTime.toFixed(1);
+        if (pk) pk.textContent = perfData.peakFrame.toFixed(0);
+        if (dr) dr.textContent = perfData.drops;
+        if (cs) cs.textContent = audioCtx ? audioCtx.state : '—';
+        var bt = document.getElementById('perfBpmTime');
+        var al = document.getElementById('perfAutoLvl');
+        var st = document.getElementById('perfSpecTime');
+        var mt = document.getElementById('perfMeterTime');
+        var ct = document.getElementById('perfChainTime');
+        var pl = document.getElementById('perfPreload');
+        if (bt) bt.textContent = perfData.bpmTime;
+        if (al) al.textContent = perfData.autoLvlTime;
+        if (st) st.textContent = perfData.spectrumTime;
+        if (mt) mt.textContent = perfData.meterTime;
+        if (ct) ct.textContent = perfData.chainTime;
+        if (pl) pl.textContent = perfData.preloadTime;
+        // Color-code frame time
+        if (ft) {
+            ft.className = perfData.frameTime > 32 ? 'perf-bad' : perfData.frameTime > 20 ? 'perf-warn' : '';
         }
     }
 
@@ -1224,7 +1313,8 @@
         renderQueuePeek();
 
         // Auto-level (replay gain)
-        if (settings.autoLevel && buffer) {
+        if (settings.autoLevel && !debugFlags.disableAutoLevel && buffer) {
+            var _alT0 = performance.now();
             var sumSq = 0;
             var totalSamples = 0;
             for (var ch = 0; ch < buffer.numberOfChannels; ch++) {
@@ -1242,6 +1332,7 @@
             gain = Math.max(0.1, Math.min(gain, 3.0)); // clamp
             volumeSlider.value = gain;
             volumeSlider.dispatchEvent(new Event('input'));
+            perfData.autoLvlTime = (performance.now() - _alT0).toFixed(0) + 'ms';
         }
 
         // Apply intro skip
@@ -1257,10 +1348,14 @@
         }
 
         // Detect BPM
-        detectBPM(buffer);
+        if (!debugFlags.disableBpm) {
+            detectBPM(buffer);
+        }
 
         // Preload next track for gapless playback
-        preloadNextTrack();
+        if (!debugFlags.disablePreload) {
+            preloadNextTrack();
+        }
     }
 
     // --- BPM Detection ---
@@ -1273,6 +1368,7 @@
         // Run async to avoid blocking UI
         setTimeout(function () {
             try {
+                var _bpmT0 = performance.now();
                 var sr = buffer.sampleRate;
                 var data = buffer.getChannelData(0);
 
@@ -1374,7 +1470,9 @@
                     npTrackBpm.textContent = 'BPM: —';
                     npTrackBpm.style.display = '';
                 }
+                perfData.bpmTime = (performance.now() - _bpmT0).toFixed(0) + 'ms';
             } catch (e) {
+                perfData.bpmTime = 'err';
                 console.warn('BPM detection error:', e);
             }
         }, 100);
@@ -1384,19 +1482,24 @@
         if (!AM.queue || !AM.queue.hasNext()) return;
         var nextInfo = AM.queue.getNextTrackInfo();
         if (!nextInfo || !nextInfo.file) return;
+        var _plT0 = performance.now();
+        perfData.preloadTime = 'loading';
         var reader = new FileReader();
         reader.onload = function (event) {
             if (!audioCtx) return;
+            perfData.preloadTime = 'decoding';
             audioCtx.decodeAudioData(event.target.result)
                 .then(function (buffer) {
                     preloadedBuffer = buffer;
                     preloadedTrackId = nextInfo.trackId;
                     preloadedTrackName = nextInfo.trackName;
                     preloadedTrackSub = nextInfo.trackSub;
+                    perfData.preloadTime = (performance.now() - _plT0).toFixed(0) + 'ms';
                 })
                 .catch(function () {
                     preloadedBuffer = null;
                     preloadedTrackId = null;
+                    perfData.preloadTime = 'err';
                 });
         };
         reader.readAsArrayBuffer(nextInfo.file);

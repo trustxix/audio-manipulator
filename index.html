@@ -401,7 +401,67 @@
                     </div>
                     <button class="load-folder-btn" id="diagRefreshBtn" style="margin-top:8px;">Refresh</button>
                 </div>
-                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v81</div>
+                <div class="settings-section">
+                    <div class="settings-section-title">Performance Profiler <button class="info-btn" data-info-title="Performance Profiler" data-info="Real-time performance monitoring overlay and feature flags for isolating audio crackling. Enable the overlay to see frame times and audio thread health. Use feature flags to disable suspects one at a time during playback.">i</button></div>
+                    <div class="setting-row">
+                        <span class="setting-label">Show Performance Overlay</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="perfOverlayToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-section-title" style="font-size:12px;margin-top:12px;">Feature Flags (Debug)</div>
+                    <div class="setting-row">
+                        <span class="setting-label">Disable BPM Detection</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="flagDisableBpm">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Disable Auto-Level Scan</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="flagDisableAutoLevel">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Disable Spectrum Analyzer</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="flagDisableSpectrum">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Disable Clipping/Loudness Meter</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="flagDisableMeter">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Disable Gapless Preload</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="flagDisablePreload">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Bypass EQ (all 10 filters)</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="flagBypassEq">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Debounce Chain Rebuild</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="flagDebounceChain">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="app-version" id="appVersion" style="text-align:center;color:#555;font-size:12px;padding:16px 0 8px;">v84</div>
             </div>
         </div>
 
@@ -1290,5 +1350,12 @@
             navigator.serviceWorker.register('./sw.js');
         }
     </script>
+    <div id="perfOverlay" class="perf-overlay" style="display:none;">
+        <div><span class="perf-lbl">FT</span> <span id="perfFrameTime">0</span>ms <span class="perf-dim">pk</span><span id="perfPeak">0</span></div>
+        <div><span class="perf-lbl">DR</span> <span id="perfDrops">0</span> <span class="perf-dim">ctx</span><span id="perfCtxState">—</span></div>
+        <div><span class="perf-lbl">BPM</span> <span id="perfBpmTime">—</span> <span class="perf-dim">AL</span><span id="perfAutoLvl">—</span></div>
+        <div><span class="perf-lbl">SPE</span> <span id="perfSpecTime">—</span> <span class="perf-dim">MTR</span><span id="perfMeterTime">—</span></div>
+        <div><span class="perf-lbl">CHN</span> <span id="perfChainTime">—</span> <span class="perf-dim">PLD</span><span id="perfPreload">—</span></div>
+    </div>
 </body>
 </html>

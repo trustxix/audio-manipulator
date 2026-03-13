@@ -550,6 +550,39 @@
 
     diagRefreshBtn.addEventListener('click', updateDiagnostics);
 
+    // --- Performance Profiler toggles ---
+    var perfOverlayToggle = document.getElementById('perfOverlayToggle');
+    var perfOverlayEl = document.getElementById('perfOverlay');
+
+    perfOverlayToggle.addEventListener('change', function () {
+        var show = perfOverlayToggle.checked;
+        if (perfOverlayEl) perfOverlayEl.style.display = show ? '' : 'none';
+        if (AM.perfData) AM.perfData.overlayVisible = show;
+        if (show) AM.perfData.peakFrame = 0;  // reset peak on show
+    });
+
+    // Feature flag toggles — wire each checkbox to AM.debugFlags
+    var flagMap = {
+        flagDisableBpm: 'disableBpm',
+        flagDisableAutoLevel: 'disableAutoLevel',
+        flagDisableSpectrum: 'disableSpectrum',
+        flagDisableMeter: 'disableMeter',
+        flagDisablePreload: 'disablePreload',
+        flagBypassEq: 'bypassEq',
+        flagDebounceChain: 'debounceChain'
+    };
+
+    Object.keys(flagMap).forEach(function (elId) {
+        var checkbox = document.getElementById(elId);
+        if (!checkbox) return;
+        var flagKey = flagMap[elId];
+        checkbox.addEventListener('change', function () {
+            if (AM.debugFlags) AM.debugFlags[flagKey] = checkbox.checked;
+            // Bypass EQ and debounce require chain rebuild
+            if (flagKey === 'bypassEq') player.updateAudioChain();
+        });
+    });
+
     // --- Public API ---
     AM.settings = {
         refresh: function () {
