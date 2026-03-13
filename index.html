@@ -903,6 +903,14 @@
     <!-- === Hidden File Input === -->
     <input type="file" class="hidden-file-input" id="fileInput" accept="audio/*,.wav,.mp3,.flac,.ogg,.aac,.m4a,.opus,.wma,.aiff,.aif" webkitdirectory>
 
+    <div id="perfOverlay" class="perf-overlay" style="display:none;">
+        <div><span class="perf-lbl">FT</span> <span id="perfFrameTime">0</span>ms <span class="perf-dim">pk</span><span id="perfPeak">0</span></div>
+        <div><span class="perf-lbl">DR</span> <span id="perfDrops">0</span> <span class="perf-dim">ctx</span><span id="perfCtxState">—</span></div>
+        <div><span class="perf-lbl">BPM</span> <span id="perfBpmTime">—</span> <span class="perf-dim">AL</span><span id="perfAutoLvl">—</span></div>
+        <div><span class="perf-lbl">SPE</span> <span id="perfSpecTime">—</span> <span class="perf-dim">MTR</span><span id="perfMeterTime">—</span></div>
+        <div><span class="perf-lbl">CHN</span> <span id="perfChainTime">—</span> <span class="perf-dim">PLD</span><span id="perfPreload">—</span></div>
+    </div>
+
     <!-- === Scripts (order matters: storage first, then player, then features, then settings) === -->
     <script src="storage.js"></script>
     <script src="player.js"></script>
@@ -1350,12 +1358,5 @@
             navigator.serviceWorker.register('./sw.js');
         }
     </script>
-    <div id="perfOverlay" class="perf-overlay" style="display:none;">
-        <div><span class="perf-lbl">FT</span> <span id="perfFrameTime">0</span>ms <span class="perf-dim">pk</span><span id="perfPeak">0</span></div>
-        <div><span class="perf-lbl">DR</span> <span id="perfDrops">0</span> <span class="perf-dim">ctx</span><span id="perfCtxState">—</span></div>
-        <div><span class="perf-lbl">BPM</span> <span id="perfBpmTime">—</span> <span class="perf-dim">AL</span><span id="perfAutoLvl">—</span></div>
-        <div><span class="perf-lbl">SPE</span> <span id="perfSpecTime">—</span> <span class="perf-dim">MTR</span><span id="perfMeterTime">—</span></div>
-        <div><span class="perf-lbl">CHN</span> <span id="perfChainTime">—</span> <span class="perf-dim">PLD</span><span id="perfPreload">—</span></div>
-    </div>
 </body>
 </html>
