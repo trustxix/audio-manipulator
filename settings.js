@@ -569,7 +569,10 @@
         flagDisableMeter: 'disableMeter',
         flagDisablePreload: 'disablePreload',
         flagBypassEq: 'bypassEq',
-        flagDebounceChain: 'debounceChain'
+        flagDebounceChain: 'debounceChain',
+        flagBypassChain: 'bypassChain',
+        flagThrottleUI: 'throttleUI',
+        flagDisconnectAnalyser: 'disconnectAnalyser'
     };
 
     Object.keys(flagMap).forEach(function (elId) {
@@ -578,8 +581,10 @@
         var flagKey = flagMap[elId];
         checkbox.addEventListener('change', function () {
             if (AM.debugFlags) AM.debugFlags[flagKey] = checkbox.checked;
-            // Bypass EQ and debounce require chain rebuild
-            if (flagKey === 'bypassEq') player.updateAudioChain();
+            // These flags require chain rebuild to take effect
+            if (flagKey === 'bypassEq' || flagKey === 'bypassChain' || flagKey === 'disconnectAnalyser') {
+                player.updateAudioChain();
+            }
         });
     });
 

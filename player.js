@@ -12,7 +12,10 @@
         disableMeter: false,
         disablePreload: false,
         bypassEq: false,
-        debounceChain: false
+        debounceChain: false,
+        bypassChain: false,
+        throttleUI: false,
+        disconnectAnalyser: false
     };
 
     // --- Performance profiler ---
@@ -545,6 +548,15 @@
         if (stereoWidthNode) stereoWidthNode.disconnect();
         if (analyserNode) analyserNode.disconnect();
 
+        // BYPASS: source → gain → destination (no processing nodes at all)
+        if (debugFlags.bypassChain) {
+            var dest = mediaStreamDest || audioCtx.destination;
+            gainNode.connect(dest);
+            perfData.chainTime = (performance.now() - _cT0).toFixed(2);
+            return;
+        }
+        if (analyserNode) analyserNode.disconnect();
+
         // Use mediaStreamDest if available (iOS mute-switch bypass), else fallback
         var destination = mediaStreamDest || audioCtx.destination;
 
@@ -631,10 +643,10 @@
         if (settings.monoEnabled && monoNode) {
             lastNode.connect(monoNode, 0, 0);
             monoNode.connect(destination);
-            if (analyserNode) monoNode.connect(analyserNode);
+            if (analyserNode && !debugFlags.disconnectAnalyser) monoNode.connect(analyserNode);
         } else {
             lastNode.connect(destination);
-            if (analyserNode) lastNode.connect(analyserNode);
+            if (analyserNode && !debugFlags.disconnectAnalyser) lastNode.connect(analyserNode);
         }
 
         perfData.chainTime = (performance.now() - _cT0).toFixed(2);
@@ -819,6 +831,12 @@
         perfData.lastFrameT = now;
 
         uiFrameCount++;
+
+        // Throttle UI: skip 5 of every 6 frames (~10fps instead of 60fps)
+        if (debugFlags.throttleUI && uiFrameCount % 6 !== 0) {
+            if (isPlaying) animFrameId = requestAnimationFrame(updateSeekUI);
+            return;
+        }
         var pos = getCurrentBufferPosition();
         var pctDone = pos / audioBuffer.duration;
 
