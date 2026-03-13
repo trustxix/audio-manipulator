@@ -555,31 +555,39 @@
             perfData.chainTime = (performance.now() - _cT0).toFixed(2);
             return;
         }
-        if (analyserNode) analyserNode.disconnect();
 
         // Use mediaStreamDest if available (iOS mute-switch bypass), else fallback
         var destination = mediaStreamDest || audioCtx.destination;
 
-        // Chain: gain → fadeGain → pan → EQ → filters → limiter → stereoWidth → mono → destination
+        // Smart chain: only connect nodes that are actively processing
         var lastNode = gainNode;
 
-        if (fadeGainNode) {
+        // fadeGain: only when fade/crossfade is configured or actively fading
+        if (fadeGainNode && (fadeGainNode.gain.value !== 1.0 || settings.crossfade > 0 || settings.fadeIn > 0 || settings.fadeOut > 0)) {
             lastNode.connect(fadeGainNode);
             lastNode = fadeGainNode;
         }
 
-        if (pannerNode) {
-            pannerNode.pan.value = settings.panValue || 0;
+        // pan: only when not centered
+        if (pannerNode && (settings.panValue || 0) !== 0) {
+            pannerNode.pan.value = settings.panValue;
             lastNode.connect(pannerNode);
             lastNode = pannerNode;
         }
 
+        // EQ: only connect bands with non-zero gain (skip flat bands)
         if (settings.eqEnabled && !debugFlags.bypassEq && eqFilters.length > 0) {
-            lastNode.connect(eqFilters[0]);
-            for (var i = 0; i < eqFilters.length - 1; i++) {
-                eqFilters[i].connect(eqFilters[i + 1]);
+            var activeEq = [];
+            for (var ei = 0; ei < eqFilters.length; ei++) {
+                if (eqFilters[ei].gain.value !== 0) activeEq.push(eqFilters[ei]);
             }
-            lastNode = eqFilters[eqFilters.length - 1];
+            if (activeEq.length > 0) {
+                lastNode.connect(activeEq[0]);
+                for (var i = 0; i < activeEq.length - 1; i++) {
+                    activeEq[i].connect(activeEq[i + 1]);
+                }
+                lastNode = activeEq[activeEq.length - 1];
+            }
         }
 
         // Distortion (only when drive > 0)
@@ -640,13 +648,17 @@
             chorusWet.connect(destination);
         }
 
+        // Analyser: only connect when spectrum is visible or meter is not disabled
+        var needAnalyser = analyserNode && !debugFlags.disconnectAnalyser &&
+            (spectrumVisible || !debugFlags.disableMeter);
+
         if (settings.monoEnabled && monoNode) {
             lastNode.connect(monoNode, 0, 0);
             monoNode.connect(destination);
-            if (analyserNode && !debugFlags.disconnectAnalyser) monoNode.connect(analyserNode);
+            if (needAnalyser) monoNode.connect(analyserNode);
         } else {
             lastNode.connect(destination);
-            if (analyserNode && !debugFlags.disconnectAnalyser) lastNode.connect(analyserNode);
+            if (needAnalyser) lastNode.connect(analyserNode);
         }
 
         perfData.chainTime = (performance.now() - _cT0).toFixed(2);
@@ -832,7 +844,7 @@
 
         uiFrameCount++;
 
-        // Throttle UI: skip 5 of every 6 frames (~10fps instead of 60fps)
+        // Debug throttle: skip 5 of every 6 frames (~10fps)
         if (debugFlags.throttleUI && uiFrameCount % 6 !== 0) {
             if (isPlaying) animFrameId = requestAnimationFrame(updateSeekUI);
             return;
@@ -840,19 +852,23 @@
         var pos = getCurrentBufferPosition();
         var pctDone = pos / audioBuffer.duration;
 
-        // --- Lightweight updates (every frame) ---
-        currentTimeEl.textContent = formatTime(pos);
-        if (!isSeeking) {
-            seekSlider.value = Math.round(pctDone * 1000);
-        }
+        // --- Progress bar updates (every frame for smooth visual) ---
         if (waveformProgress) {
             waveformProgress.style.width = (pctDone * 100) + '%';
         }
-        miniPlayerTime.textContent = formatTime(pos);
         miniPlayerProgress.style.width = (pctDone * 100) + '%';
+        if (!isSeeking) {
+            seekSlider.value = Math.round(pctDone * 1000);
+        }
 
-        // --- Medium-cost updates (every 3 frames ~20fps) ---
-        if (uiFrameCount % 3 === 0) {
+        // --- Text DOM updates (every 4 frames ~15fps — text changes don't need 60fps) ---
+        if (uiFrameCount % 4 === 0) {
+            currentTimeEl.textContent = formatTime(pos);
+            miniPlayerTime.textContent = formatTime(pos);
+        }
+
+        // --- Floating strip updates (every 8 frames ~7fps) ---
+        if (uiFrameCount % 8 === 0) {
             if (floatingTime) floatingTime.textContent = formatTime(pos);
             if (floatingStripFill) floatingStripFill.style.width = (pctDone * 100) + '%';
             if (floatingTrack) floatingTrack.textContent = currentTrackName;
