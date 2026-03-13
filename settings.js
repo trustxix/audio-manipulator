@@ -36,6 +36,8 @@
     var largeTouchToggle = document.getElementById('largeTouchToggle');
     var reduceMotionToggle = document.getElementById('reduceMotionToggle');
     var highContrastToggle = document.getElementById('highContrastToggle');
+    var muteBypassToggle = document.getElementById('muteBypassToggle');
+    var autoLevelToggle = document.getElementById('autoLevelToggle');
 
     // --- Accessibility ---
     function applyAccessibility() {
@@ -183,13 +185,11 @@
         player.updateAudioChain();
     });
 
-    var autoLevelToggle = document.getElementById('autoLevelToggle');
     autoLevelToggle.addEventListener('change', function () {
         settings.autoLevel = autoLevelToggle.checked;
         storage.saveSettings(settings);
     });
 
-    var muteBypassToggle = document.getElementById('muteBypassToggle');
     muteBypassToggle.addEventListener('change', function () {
         settings.muteBypass = muteBypassToggle.checked;
         storage.saveSettings(settings);
